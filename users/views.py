@@ -16,6 +16,19 @@ from .serializers import CustomTokenObtainPairSerializer, UserRegisterSerializer
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
+REFRESH_TOKEN_COOKIE_NAME = "refresh_token"
+REFRESH_TOKEN_COOKIE_MAX_AGE = 7 * 24 * 60 * 60
+
+
+def set_refresh_token_cookie(response, refresh_token):
+    response.set_cookie(
+        key=REFRESH_TOKEN_COOKIE_NAME,
+        value=refresh_token,
+        httponly=True,
+        secure=True,
+        samesite="Strict",
+        max_age=REFRESH_TOKEN_COOKIE_MAX_AGE
+    )
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -108,14 +121,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         if response.status_code == 200:
             refresh_token = response.data.get("refresh")
             access_token = response.data.get("access")
-            response.set_cookie(
-                key="refresh_token",
-                value=refresh_token,
-                httponly=True,
-                secure=True,
-                samesite="Strict",
-                max_age=7 * 24 * 60 * 60
-            )
+            set_refresh_token_cookie(response, refresh_token)
             response.data = {
                 "message": "Connexion réussie",
                 "access": access_token,
@@ -233,15 +239,29 @@ class RegisterView(generics.CreateAPIView):
             "access": access_token
         }, status=status.HTTP_201_CREATED)
 
-        response.set_cookie(
-            key="refresh_token",
-            value=refresh_token,
-            httponly=True,
-            secure=True,
-            samesite="Strict",
-            max_age=7 * 24 * 60 * 60
-        )
+        set_refresh_token_cookie(response, refresh_token)
 
+        return response
+
+
+class LogoutView(generics.GenericAPIView):
+    """
+    Vue pour déconnecter l'utilisateur côté backend.
+
+    Supprime le cookie HttpOnly refresh_token afin d'empêcher le navigateur de
+    recréer une session via un endpoint de refresh après un logout frontend.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        response = Response(
+            {"message": "Déconnexion réussie"},
+            status=status.HTTP_200_OK
+        )
+        response.delete_cookie(
+            key=REFRESH_TOKEN_COOKIE_NAME,
+            samesite="Strict",
+        )
         return response
 
 

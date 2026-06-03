@@ -5,6 +5,44 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from .models import CustomUser
+from .serializers import UserRegisterSerializer
+
+
+class LogoutTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse('logout')
+
+    def test_logout_deletes_refresh_token_cookie(self):
+        self.client.cookies['refresh_token'] = 'refresh-token-value'
+
+        response = self.client.post(self.url, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['message'], 'Déconnexion réussie')
+        self.assertIn('refresh_token', response.cookies)
+        self.assertEqual(response.cookies['refresh_token'].value, '')
+        self.assertEqual(response.cookies['refresh_token']['max-age'], 0)
+        self.assertEqual(response.cookies['refresh_token']['samesite'], 'Strict')
+
+
+class UserRegisterSerializerTests(TestCase):
+    def test_duplicate_email_returns_custom_error(self):
+        CustomUser.objects.create_user(
+            email='user@example.com',
+            password='InitialPass123!',
+        )
+        serializer = UserRegisterSerializer(data={
+            'email': 'user@example.com',
+            'password': 'SecurePass123!',
+            'password_confirm': 'SecurePass123!',
+            'first_name': 'Jane',
+            'last_name': 'Doe',
+        })
+
+        self.assertFalse(serializer.is_valid())
+        self.assertEqual(serializer.errors['error_code'][0], 'EMAIL_ALREADY_EXISTS')
+        self.assertEqual(serializer.errors['message'][0], 'Cet email existe déjà')
 
 
 @override_settings(
