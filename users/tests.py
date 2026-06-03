@@ -2,10 +2,11 @@ from django.core import mail
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework import status
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.test import APIClient
 
 from .models import CustomUser
-from .serializers import UserRegisterSerializer
+from .serializers import CustomTokenObtainPairSerializer, UserRegisterSerializer
 
 
 class LogoutTests(TestCase):
@@ -43,6 +44,20 @@ class UserRegisterSerializerTests(TestCase):
         self.assertFalse(serializer.is_valid())
         self.assertEqual(serializer.errors['error_code'][0], 'EMAIL_ALREADY_EXISTS')
         self.assertEqual(serializer.errors['message'][0], 'Cet email existe déjà')
+
+
+class LoginSerializerTests(TestCase):
+    def test_invalid_credentials_return_custom_error(self):
+        serializer = CustomTokenObtainPairSerializer(data={
+            'email': 'unknown@example.com',
+            'password': 'WrongPass123!',
+        })
+
+        with self.assertRaises(AuthenticationFailed) as context:
+            serializer.is_valid(raise_exception=True)
+
+        self.assertEqual(context.exception.detail['error_code'], 'INVALID_CREDENTIALS')
+        self.assertEqual(context.exception.detail['message'], 'Email ou mot de passe incorrect')
 
 
 @override_settings(

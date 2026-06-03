@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import AuthenticationFailed, ValidationError
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.core.exceptions import ValidationError as DjangoValidationError
 
@@ -96,6 +96,15 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         >>> tokens = serializer.validated_data
         # Les tokens contiennent maintenant email, first_name, last_name, is_staff
     """
+    def validate(self, attrs):
+        try:
+            return super().validate(attrs)
+        except AuthenticationFailed:
+            raise AuthenticationFailed({
+                "error_code": "INVALID_CREDENTIALS",
+                "message": "Email ou mot de passe incorrect"
+            })
+
     @classmethod
     def get_token(cls, user):
         """
