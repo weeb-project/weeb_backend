@@ -62,6 +62,7 @@ POST /articles/
 PUT /articles/:slug/
 PATCH /articles/:slug/
 DELETE /articles/:slug/
+POST /contact/
 ```
 
 Attention : `POST /users/token/refresh/` utilise actuellement la vue standard
