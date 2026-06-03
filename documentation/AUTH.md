@@ -62,16 +62,16 @@ Quand le blog/articles sera implémenté, les routes de lecture devront être pu
 
 ```text
 GET /articles/
-GET /articles/:id/
+GET /articles/:slug/
 ```
 
 Les routes d'écriture devront rester protégées :
 
 ```text
 POST /articles/
-PUT /articles/:id/
-PATCH /articles/:id/
-DELETE /articles/:id/
+PUT /articles/:slug/
+PATCH /articles/:slug/
+DELETE /articles/:slug/
 ```
 
 Quand le formulaire de contact sera implémenté, son endpoint devra être public :
