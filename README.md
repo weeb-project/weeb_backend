@@ -76,9 +76,15 @@ EMAIL_USE_TLS=True
 EMAIL_USE_SSL=False
 DEFAULT_FROM_EMAIL=Weeb <no-reply@example.com>
 FRONTEND_URL=http://localhost:3000
+REFRESH_TOKEN_COOKIE_SECURE=False
+REFRESH_TOKEN_COOKIE_SAMESITE=Strict
 ```
 
 En local, si `EMAIL_BACKEND` n'est pas défini, Django utilise le backend console et affiche l'email dans le terminal.
+
+En local HTTP, `REFRESH_TOKEN_COOKIE_SECURE` doit rester à `False` pour que le
+navigateur renvoie le cookie `refresh_token` lors de `POST /users/token/refresh/`.
+En production HTTPS, le passer à `True`.
 
 ### Certificats SSL sur macOS
 

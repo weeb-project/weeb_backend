@@ -157,11 +157,20 @@ REST_FRAMEWORK = {
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=2),
-    'REFRESH_TOKEN_LIFETIME': timedelta(minutes=3),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
+REFRESH_TOKEN_COOKIE_SECURE = config(
+    'REFRESH_TOKEN_COOKIE_SECURE',
+    default=not DEBUG,
+    cast=bool
+)
+REFRESH_TOKEN_COOKIE_SAMESITE = config(
+    'REFRESH_TOKEN_COOKIE_SAMESITE',
+    default='Strict'
+)
 
 # Durée de validité des tokens de reset password Django : 2 heures.
 PASSWORD_RESET_TIMEOUT = 60 * 60 * 2

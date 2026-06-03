@@ -76,7 +76,7 @@ et placent le refresh token dans un cookie sécurisé :
 ```text
 refresh_token
 HttpOnly=True
-Secure=True
+Secure=True en production HTTPS, False en local HTTP
 SameSite=Strict
 Max-Age=7 jours
 ```
@@ -115,19 +115,23 @@ La route existe :
 POST /users/token/refresh/
 ```
 
-Elle utilise actuellement la vue standard SimpleJWT `TokenRefreshView`.
-Elle attend donc un refresh token dans le body JSON :
+Elle lit le refresh token depuis le cookie HttpOnly `refresh_token`.
+Le frontend doit appeler cette route avec les credentials/cookies activés, sans
+envoyer le refresh token dans le body :
+
+```text
+withCredentials: true
+```
+
+En cas de succès, la réponse contient un nouvel access token :
 
 ```json
 {
-  "refresh": "..."
+  "access": "..."
 }
 ```
 
-Point d'attention : le login et le register stockent le refresh token dans un cookie
-HttpOnly, qui n'est pas lisible par JavaScript. Si le frontend doit rafraîchir
-automatiquement l'access token à partir du cookie, il faudra remplacer cette vue par
-une vue custom qui lit `request.COOKIES["refresh_token"]`.
+Si le cookie est absent, invalide ou expiré, la route renvoie une erreur `401`.
 
 ## Logique pour les futures routes
 
@@ -154,13 +158,13 @@ PATCH /articles/:slug/
 DELETE /articles/:slug/
 ```
 
-Quand le formulaire de contact sera implémenté, son endpoint devra être public :
+Le formulaire de contact est public :
 
 ```text
 POST /contact/
 ```
 
-Il devra donc utiliser :
+Il utilise donc :
 
 ```python
 permission_classes = [AllowAny]

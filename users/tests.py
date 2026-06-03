@@ -1,12 +1,47 @@
 from django.core import mail
+from django.conf import settings
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import CustomUser
 from .serializers import CustomTokenObtainPairSerializer, UserRegisterSerializer
+
+
+class CookieTokenRefreshTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse('token_refresh')
+        self.user = CustomUser.objects.create_user(
+            email='user@example.com',
+            password='InitialPass123!',
+        )
+
+    def test_refresh_reads_refresh_token_from_cookie(self):
+        refresh = RefreshToken.for_user(self.user)
+        self.client.cookies['refresh_token'] = str(refresh)
+
+        response = self.client.post(self.url, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('access', response.data)
+
+    def test_refresh_without_cookie_returns_401(self):
+        response = self.client.post(self.url, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.data['message'], 'Refresh token manquant.')
+
+    def test_refresh_with_invalid_cookie_returns_401(self):
+        self.client.cookies['refresh_token'] = 'invalid-refresh-token'
+
+        response = self.client.post(self.url, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.data['message'], 'Refresh token invalide ou expiré.')
 
 
 class LogoutTests(TestCase):
@@ -24,7 +59,10 @@ class LogoutTests(TestCase):
         self.assertIn('refresh_token', response.cookies)
         self.assertEqual(response.cookies['refresh_token'].value, '')
         self.assertEqual(response.cookies['refresh_token']['max-age'], 0)
-        self.assertEqual(response.cookies['refresh_token']['samesite'], 'Strict')
+        self.assertEqual(
+            response.cookies['refresh_token']['samesite'],
+            settings.REFRESH_TOKEN_COOKIE_SAMESITE
+        )
 
 
 class UserRegisterSerializerTests(TestCase):
@@ -45,8 +83,52 @@ class UserRegisterSerializerTests(TestCase):
         self.assertEqual(serializer.errors['error_code'][0], 'EMAIL_ALREADY_EXISTS')
         self.assertEqual(serializer.errors['message'][0], 'Cet email existe déjà')
 
+    def test_register_normalizes_email_case(self):
+        serializer = UserRegisterSerializer(data={
+            'email': 'User@Example.COM',
+            'password': 'SecurePass123!',
+            'password_confirm': 'SecurePass123!',
+            'first_name': 'Jane',
+            'last_name': 'Doe',
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        user = serializer.save()
+
+        self.assertEqual(user.email, 'user@example.com')
+
+    def test_duplicate_email_with_different_case_returns_custom_error(self):
+        CustomUser.objects.create_user(
+            email='user@example.com',
+            password='InitialPass123!',
+        )
+        serializer = UserRegisterSerializer(data={
+            'email': 'User@Example.COM',
+            'password': 'SecurePass123!',
+            'password_confirm': 'SecurePass123!',
+            'first_name': 'Jane',
+            'last_name': 'Doe',
+        })
+
+        self.assertFalse(serializer.is_valid())
+        self.assertEqual(serializer.errors['error_code'][0], 'EMAIL_ALREADY_EXISTS')
+        self.assertEqual(serializer.errors['message'][0], 'Cet email existe déjà')
+
 
 class LoginSerializerTests(TestCase):
+    def test_login_accepts_email_with_different_case(self):
+        CustomUser.objects.create_user(
+            email='user@example.com',
+            password='InitialPass123!',
+        )
+        serializer = CustomTokenObtainPairSerializer(data={
+            'email': 'User@Example.COM',
+            'password': 'InitialPass123!',
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertIn('access', serializer.validated_data)
+
     def test_invalid_credentials_return_custom_error(self):
         serializer = CustomTokenObtainPairSerializer(data={
             'email': 'unknown@example.com',
