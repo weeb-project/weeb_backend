@@ -39,8 +39,11 @@ sur les vues publiques suivantes :
 POST /users/login/
 POST /users/logout/
 POST /users/register/
+POST /users/token/refresh/
 POST /users/password-reset/request/
 POST /users/password-reset/confirm/
+GET /articles/
+GET /articles/:slug/
 ```
 
 Ces routes sont publiques parce qu'un utilisateur non connecté doit pouvoir :
@@ -48,8 +51,10 @@ Ces routes sont publiques parce qu'un utilisateur non connecté doit pouvoir :
 - se connecter
 - supprimer le cookie refresh_token lors de la déconnexion
 - créer un compte
+- demander un nouvel access token à partir d'un refresh token
 - demander une réinitialisation de mot de passe
 - confirmer une réinitialisation de mot de passe
+- lire les articles
 
 ## Déconnexion
 
@@ -63,6 +68,67 @@ avec les credentials/cookies activés, puis supprimer son access token local.
 L'endpoint renvoie un cookie `refresh_token` expiré pour empêcher une reconnexion
 automatique via un refresh token encore présent dans le navigateur.
 
+## Login et register
+
+`POST /users/login/` et `POST /users/register/` renvoient l'access token dans le JSON
+et placent le refresh token dans un cookie sécurisé :
+
+```text
+refresh_token
+HttpOnly=True
+Secure=True
+SameSite=Strict
+Max-Age=7 jours
+```
+
+Le frontend doit stocker l'access token côté application et envoyer :
+
+```text
+Authorization: Bearer <access_token>
+```
+
+sur les routes protégées.
+
+En cas d'identifiants invalides, le login renvoie une erreur personnalisée :
+
+```json
+{
+  "error_code": "INVALID_CREDENTIALS",
+  "message": "Email ou mot de passe incorrect"
+}
+```
+
+En cas d'email déjà utilisé à l'inscription :
+
+```json
+{
+  "error_code": "EMAIL_ALREADY_EXISTS",
+  "message": "Cet email existe déjà"
+}
+```
+
+## Refresh token
+
+La route existe :
+
+```text
+POST /users/token/refresh/
+```
+
+Elle utilise actuellement la vue standard SimpleJWT `TokenRefreshView`.
+Elle attend donc un refresh token dans le body JSON :
+
+```json
+{
+  "refresh": "..."
+}
+```
+
+Point d'attention : le login et le register stockent le refresh token dans un cookie
+HttpOnly, qui n'est pas lisible par JavaScript. Si le frontend doit rafraîchir
+automatiquement l'access token à partir du cookie, il faudra remplacer cette vue par
+une vue custom qui lit `request.COOKIES["refresh_token"]`.
+
 ## Logique pour les futures routes
 
 La règle générale est :
@@ -72,14 +138,14 @@ Privé par défaut.
 Public uniquement si la route déclare explicitement AllowAny.
 ```
 
-Quand le blog/articles sera implémenté, les routes de lecture devront être publiques :
+Les routes articles suivent déjà cette règle.
 
 ```text
 GET /articles/
 GET /articles/:slug/
 ```
 
-Les routes d'écriture devront rester protégées :
+Les routes d'écriture sont protégées :
 
 ```text
 POST /articles/
