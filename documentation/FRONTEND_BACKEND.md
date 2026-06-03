@@ -52,9 +52,23 @@ Les routes backend utilisées par le frontend sont :
 ```text
 POST /users/register/
 POST /users/login/
+POST /users/logout/
+POST /users/token/refresh/
 POST /users/password-reset/request/
 POST /users/password-reset/confirm/
+GET /articles/
+GET /articles/:slug/
+POST /articles/
+PUT /articles/:slug/
+PATCH /articles/:slug/
+DELETE /articles/:slug/
 ```
+
+Attention : `POST /users/token/refresh/` utilise actuellement la vue standard
+SimpleJWT et attend un champ JSON `refresh`. Or le backend met le refresh token dans
+un cookie HttpOnly au login/register. Pour un refresh automatique côté navigateur,
+il faudra soit envoyer explicitement le refresh token dans le body, soit ajouter une
+vue backend custom qui lit le cookie `refresh_token`.
 
 ## Rôle du frontend
 
