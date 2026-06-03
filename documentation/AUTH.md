@@ -37,6 +37,7 @@ sur les vues publiques suivantes :
 
 ```text
 POST /users/login/
+POST /users/logout/
 POST /users/register/
 POST /users/password-reset/request/
 POST /users/password-reset/confirm/
@@ -45,9 +46,22 @@ POST /users/password-reset/confirm/
 Ces routes sont publiques parce qu'un utilisateur non connecté doit pouvoir :
 
 - se connecter
+- supprimer le cookie refresh_token lors de la déconnexion
 - créer un compte
 - demander une réinitialisation de mot de passe
 - confirmer une réinitialisation de mot de passe
+
+## Déconnexion
+
+Le frontend doit appeler :
+
+```text
+POST /users/logout/
+```
+
+avec les credentials/cookies activés, puis supprimer son access token local.
+L'endpoint renvoie un cookie `refresh_token` expiré pour empêcher une reconnexion
+automatique via un refresh token encore présent dans le navigateur.
 
 ## Logique pour les futures routes
 

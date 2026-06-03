@@ -163,6 +163,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         >>> if serializer.is_valid():
         ...     user = serializer.save()
     """
+    email = serializers.EmailField(required=True, validators=[])
     password_confirm = serializers.CharField(write_only=True)
 
     class Meta:
