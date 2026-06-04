@@ -31,6 +31,7 @@ REFRESH_TOKEN_COOKIE_MAX_AGE = 7 * 24 * 60 * 60
 
 
 def set_refresh_token_cookie(response, refresh_token):
+    """Ajoute le refresh token dans un cookie HttpOnly."""
     response.set_cookie(
         key=REFRESH_TOKEN_COOKIE_NAME,
         value=refresh_token,
@@ -43,6 +44,7 @@ def set_refresh_token_cookie(response, refresh_token):
 
 
 def delete_refresh_token_cookie(response):
+    """Supprime le cookie de refresh token."""
     response.delete_cookie(
         key=REFRESH_TOKEN_COOKIE_NAME,
         path="/",
@@ -51,6 +53,7 @@ def delete_refresh_token_cookie(response):
 
 
 def blacklist_refresh_token(refresh_token):
+    """Révoque un refresh token sans faire échouer le logout."""
     try:
         RefreshToken(refresh_token).blacklist()
     except TokenError:
@@ -268,6 +271,7 @@ class CurrentUserView(generics.RetrieveAPIView):
     serializer_class = UserSerializer
 
     def get_object(self):
+        """Retourne l'utilisateur associé à la requête courante."""
         return self.request.user
 
 
@@ -303,6 +307,7 @@ class LogoutView(generics.GenericAPIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        """Déconnecte l'utilisateur et supprime le cookie de session."""
         refresh_token = request.COOKIES.get(REFRESH_TOKEN_COOKIE_NAME)
         if refresh_token:
             blacklist_refresh_token(refresh_token)
@@ -328,6 +333,7 @@ class CookieTokenRefreshView(generics.GenericAPIView):
     throttle_scope = "token_refresh"
 
     def post(self, request):
+        """Crée un nouvel access token depuis le refresh token en cookie."""
         refresh_token = request.COOKIES.get(REFRESH_TOKEN_COOKIE_NAME)
 
         if not refresh_token:

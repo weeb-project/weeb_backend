@@ -10,6 +10,7 @@ User = get_user_model()
 
 
 def normalize_email(value):
+    """Normalise l'email pour les recherches et créations de compte."""
     return User.objects.normalize_email(value).lower()
 
 
@@ -104,6 +105,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'email', 'date_joined']
 
     def validate(self, attrs):
+        """Empêche un admin de désactiver ou rétrograder son propre compte."""
         request = self.context.get('request')
         if request and self.instance == request.user:
             if attrs.get('is_active') is False:
@@ -154,6 +156,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Les tokens contiennent maintenant email, first_name, last_name, is_staff
     """
     def validate(self, attrs):
+        """Normalise l'email et renvoie des erreurs de connexion explicites."""
         email_field = self.username_field
         user = None
         if attrs.get(email_field):
@@ -375,6 +378,7 @@ class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
 
     def validate_email(self, value):
+        """Normalise l'email soumis."""
         return normalize_email(value)
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
