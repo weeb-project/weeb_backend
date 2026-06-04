@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.db import IntegrityError
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed, ValidationError
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -7,8 +8,10 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 
 User = get_user_model()
 
+
 def normalize_email(value):
     return User.objects.normalize_email(value).lower()
+
 
 def validate_password_strength(value):
     """
@@ -54,7 +57,7 @@ class UserSerializer(serializers.ModelSerializer):
     des données utilisateur sensibles.
     
     Attributes:
-        id (int): L'identifiant unique de l'utilisateur (read-only).
+        id (UUID): L'identifiant public unique de l'utilisateur (read-only).
         email (str): L'adresse email unique (read-only).
         first_name (str): Le prénom de l'utilisateur (read-only).
         last_name (str): Le nom de famille de l'utilisateur (read-only).
@@ -65,7 +68,7 @@ class UserSerializer(serializers.ModelSerializer):
         >>> serializer = UserSerializer(user)
         >>> serializer.data
         {
-            'id': 1,
+            'id': '4f9b5f49-f2d4-4e2d-8b82-cd944c4b6f86',
             'email': 'user@example.com',
             'first_name': 'John',
             'last_name': 'Doe',
@@ -73,10 +76,25 @@ class UserSerializer(serializers.ModelSerializer):
             'is_active': True
         }
     """
+    id = serializers.UUIDField(source='public_id', read_only=True)
+
     class Meta:
         model = User
         fields = ['id', 'email', 'first_name', 'last_name', 'is_staff', 'is_active']
         read_only_fields = ['id', 'email', 'first_name', 'last_name', 'is_staff', 'is_active']
+
+
+class PublicAuthorSerializer(serializers.ModelSerializer):
+    """
+    Serializer public minimal pour afficher l'auteur d'un contenu exposé publiquement.
+    """
+    id = serializers.UUIDField(source='public_id', read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'first_name', 'last_name']
+        read_only_fields = ['id', 'first_name', 'last_name']
+
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
@@ -101,8 +119,18 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
     def validate(self, attrs):
         email_field = self.username_field
+        user = None
         if attrs.get(email_field):
-            attrs[email_field] = normalize_email(attrs[email_field])
+            normalized_email = normalize_email(attrs[email_field])
+            user = User.objects.filter(email__iexact=normalized_email).first()
+            attrs[email_field] = user.email if user else normalized_email
+
+        password = attrs.get('password')
+        if user and not user.is_active and user.check_password(password):
+            raise AuthenticationFailed({
+                "error_code": "ACCOUNT_PENDING_APPROVAL",
+                "message": "Votre compte est en attente de validation par un administrateur"
+            })
 
         try:
             return super().validate(attrs)
@@ -231,16 +259,16 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         # 1. Vérifier que l'email n'existe pas
         if User.objects.filter(email__iexact=email).exists():
             raise ValidationError({
-            "error_code": "EMAIL_ALREADY_EXISTS",
-            "message": "Cet email existe déjà"
-        })
+                "error_code": "EMAIL_ALREADY_EXISTS",
+                "message": "Cet email existe déjà"
+            })
 
         # 2. Vérifier que les mots de passe correspondent
         if password != password_confirm:
             raise ValidationError({
-            "error_code": "PASSWORD_MISMATCH",
-            "message": "Les mots de passe ne correspondent pas"
-        })
+                "error_code": "PASSWORD_MISMATCH",
+                "message": "Les mots de passe ne correspondent pas"
+            })
 
         # 3. Valider la force du mot de passe
         validate_password_strength(password)
@@ -278,8 +306,15 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             'newuser@example.com'
         """
         validated_data.pop('password_confirm')
+        validated_data['is_active'] = False
 
-        return User.objects.create_user(**validated_data)
+        try:
+            return User.objects.create_user(**validated_data)
+        except IntegrityError:
+            raise ValidationError({
+                "error_code": "EMAIL_ALREADY_EXISTS",
+                "message": "Cet email existe déjà"
+            })
 
 class PasswordResetRequestSerializer(serializers.Serializer):
     """
@@ -316,7 +351,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     l'utilisateur clique sur le lien de confirmation et fournit son nouveau mot de passe.
     
     Attributes:
-        uidb64 (str): L'identifiant utilisateur encodé en base64, fourni dans le lien
+        uidb64 (str): L'UUID public utilisateur encodé en base64, fourni dans le lien
                      de réinitialisation. Requis.
         token (str): Le token de réinitialisation signé, généré et envoyé par email.
                     Requis.
@@ -328,7 +363,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     
     Example:
         >>> data = {
-        ...     'uidb64': 'MQ==',
+        ...     'uidb64': 'uuid-public-encode',
         ...     'token': 'abcd1234efgh5678',
         ...     'password': 'NewSecurePass123!'
         ... }

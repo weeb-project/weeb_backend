@@ -69,6 +69,21 @@ DELETE /articles/:slug/
 POST /contact/
 ```
 
+`POST /users/register/` crée un compte en attente de validation administrateur.
+Cette route ne connecte pas automatiquement l'utilisateur : elle ne renvoie pas
+d'access token et ne pose pas de cookie `refresh_token`. Après inscription, le
+frontend doit afficher le message de succès et inviter l'utilisateur à attendre
+la validation du compte.
+
+`POST /users/logout/` blackliste le refresh token côté serveur, puis supprime le
+cookie HttpOnly `refresh_token`. Le frontend doit aussi appeler cette route avec
+les credentials/cookies activés, sinon le navigateur peut ignorer le `Set-Cookie`
+qui expire le cookie :
+
+```js
+withCredentials: true
+```
+
 `POST /users/token/refresh/` lit le refresh token depuis le cookie HttpOnly
 `refresh_token`. Le frontend doit appeler cette route avec les credentials/cookies
 activés, sans body obligatoire :
@@ -85,7 +100,11 @@ En cas de succès, le backend renvoie :
 }
 ```
 
-Si le cookie est absent, invalide ou expiré, la route renvoie `401`.
+Le backend pose aussi un nouveau cookie HttpOnly `refresh_token` et blackliste
+l'ancien refresh token. Le nouveau refresh token n'est jamais renvoyé dans le
+JSON.
+
+Si le cookie est absent, invalide, expiré ou blacklisté, la route renvoie `401`.
 
 ## Rôle du frontend
 

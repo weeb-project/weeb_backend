@@ -12,10 +12,42 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',
+        'login': '5/minute',
+        'register': '5/hour',
+        'token_refresh': '30/minute',
+        'password_reset_request': '5/hour',
+        'password_reset_confirm': '10/hour',
+        'contact': '5/hour',
+    },
 }
 ```
 
 Cela signifie que, par défaut, une route API demande un utilisateur connecté avec un token JWT valide.
+
+SimpleJWT est configuré pour révoquer les refresh tokens côté serveur :
+
+```python
+INSTALLED_APPS = [
+    # ...
+    'rest_framework_simplejwt.token_blacklist',
+]
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=2),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    # ...
+}
+```
+
+Après activation de `token_blacklist`, appliquer les migrations :
+
+```bash
+python3 manage.py migrate
+```
 
 ## Routes publiques
 
@@ -49,12 +81,16 @@ GET /articles/:slug/
 Ces routes sont publiques parce qu'un utilisateur non connecté doit pouvoir :
 
 - se connecter
-- supprimer le cookie refresh_token lors de la déconnexion
+- révoquer puis supprimer le cookie refresh_token lors de la déconnexion
 - créer un compte
 - demander un nouvel access token à partir d'un refresh token
 - demander une réinitialisation de mot de passe
 - confirmer une réinitialisation de mot de passe
 - lire les articles
+
+Les réponses publiques des articles gardent un auteur minimal : `id`,
+`first_name` et `last_name`. Elles ne renvoient pas `email`, `is_staff` ou
+`is_active`.
 
 ## Déconnexion
 
@@ -65,13 +101,16 @@ POST /users/logout/
 ```
 
 avec les credentials/cookies activés, puis supprimer son access token local.
-L'endpoint renvoie un cookie `refresh_token` expiré pour empêcher une reconnexion
-automatique via un refresh token encore présent dans le navigateur.
+L'endpoint blackliste le refresh token présent dans le cookie, puis renvoie un
+cookie `refresh_token` expiré pour empêcher une reconnexion automatique.
 
-## Login et register
+Si le cookie est absent, invalide, expiré ou déjà blacklisté, la déconnexion
+reste idempotente : l'endpoint répond `200` et supprime quand même le cookie.
 
-`POST /users/login/` et `POST /users/register/` renvoient l'access token dans le JSON
-et placent le refresh token dans un cookie sécurisé :
+## Login
+
+`POST /users/login/` renvoie l'access token dans le JSON et place le refresh token
+dans un cookie sécurisé :
 
 ```text
 refresh_token
@@ -98,6 +137,41 @@ En cas d'identifiants invalides, le login renvoie une erreur personnalisée :
 }
 ```
 
+Si le compte existe mais n'a pas encore été validé par un administrateur :
+
+```json
+{
+  "error_code": "ACCOUNT_PENDING_APPROVAL",
+  "message": "Votre compte est en attente de validation par un administrateur"
+}
+```
+
+## Register
+
+`POST /users/register/` crée un compte inactif en attente de validation par un
+administrateur. Cette route ne renvoie pas de token et ne pose pas de cookie
+`refresh_token`.
+
+L'email est normalisé en minuscules et l'unicité est vérifiée de manière
+insensible à la casse. `user@example.com` et `USER@example.com` ne peuvent donc
+pas créer deux comptes différents.
+
+Réponse succès :
+
+```json
+{
+  "message": "Compte créé avec succès. Il doit être validé par un administrateur avant connexion.",
+  "user": {
+    "id": "4f9b5f49-f2d4-4e2d-8b82-cd944c4b6f86",
+    "email": "newuser@example.com",
+    "first_name": "John",
+    "last_name": "Doe",
+    "is_staff": false,
+    "is_active": false
+  }
+}
+```
+
 En cas d'email déjà utilisé à l'inscription :
 
 ```json
@@ -106,6 +180,10 @@ En cas d'email déjà utilisé à l'inscription :
   "message": "Cet email existe déjà"
 }
 ```
+
+La vérification est insensible à la casse : `user@example.com` et
+`User@example.com` sont considérés comme le même email. L'API renvoie donc une
+erreur `400` contrôlée plutôt qu'une erreur serveur.
 
 ## Refresh token
 
@@ -131,7 +209,13 @@ En cas de succès, la réponse contient un nouvel access token :
 }
 ```
 
-Si le cookie est absent, invalide ou expiré, la route renvoie une erreur `401`.
+Avec `ROTATE_REFRESH_TOKENS=True`, la route pose aussi un nouveau cookie
+HttpOnly `refresh_token` et blackliste l'ancien refresh token. Le nouveau
+refresh token n'est pas renvoyé dans le JSON.
+
+Si le cookie est absent, invalide, expiré ou blacklisté, la route renvoie une
+erreur `401`. Quand un cookie invalide est présenté, l'endpoint renvoie aussi un
+cookie `refresh_token` expiré.
 
 ## Logique pour les futures routes
 
@@ -169,3 +253,42 @@ Il utilise donc :
 ```python
 permission_classes = [AllowAny]
 ```
+
+## Rate limiting des routes publiques sensibles
+
+Les routes publiques sensibles utilisent les throttles DRF pour limiter les abus :
+
+```python
+from rest_framework.throttling import AnonRateThrottle, ScopedRateThrottle
+
+throttle_classes = [AnonRateThrottle, ScopedRateThrottle]
+throttle_scope = "nom_du_scope"
+```
+
+`AnonRateThrottle` applique une limite générale aux requêtes anonymes.
+`ScopedRateThrottle` applique une limite spécifique à chaque endpoint sensible.
+
+Limites configurées :
+
+| Route | Scope | Limite |
+|-------|-------|--------|
+| `POST /users/login/` | `login` | `5/minute` |
+| `POST /users/register/` | `register` | `5/hour` |
+| `POST /users/token/refresh/` | `token_refresh` | `30/minute` |
+| `POST /users/password-reset/request/` | `password_reset_request` | `5/hour` |
+| `POST /users/password-reset/confirm/` | `password_reset_confirm` | `10/hour` |
+| `POST /contact/` | `contact` | `5/hour` |
+
+Quand une limite est dépassée, DRF renvoie :
+
+```http
+429 Too Many Requests
+```
+
+Objectif :
+
+- limiter les tentatives de brute force sur le login
+- limiter la création massive de comptes
+- limiter le spam d'emails de reset password
+- limiter les abus sur le renouvellement de token
+- limiter le spam du formulaire de contact
