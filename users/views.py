@@ -7,9 +7,12 @@ from django.core.mail import send_mail
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from rest_framework import generics, status
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle, ScopedRateThrottle
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import CustomTokenObtainPairSerializer, UserRegisterSerializer, UserSerializer, \
@@ -39,6 +42,15 @@ def delete_refresh_token_cookie(response):
         path="/",
         samesite=settings.REFRESH_TOKEN_COOKIE_SAMESITE,
     )
+
+
+def blacklist_refresh_token(refresh_token):
+    try:
+        RefreshToken(refresh_token).blacklist()
+    except TokenError:
+        # Le logout reste idempotent : un token invalide, expiré ou déjà
+        # blacklisté est quand même supprimé du navigateur.
+        pass
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -73,7 +85,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             "message": "Connexion réussie",
             "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
             "user": {
-                "id": 1,
+                "id": "4f9b5f49-f2d4-4e2d-8b82-cd944c4b6f86",
                 "email": "user@example.com",
                 "first_name": "John",
                 "last_name": "Doe",
@@ -85,6 +97,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
     # Route publique : un utilisateur doit pouvoir se connecter sans token JWT.
     permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle, ScopedRateThrottle]
+    throttle_scope = "login"
 
     def post(self, request, *args, **kwargs):
         """
@@ -173,7 +187,7 @@ class RegisterView(generics.CreateAPIView):
         {
             "message": "Compte créé avec succès. Il doit être validé par un administrateur avant connexion.",
             "user": {
-                "id": 2,
+                "id": "4f9b5f49-f2d4-4e2d-8b82-cd944c4b6f86",
                 "email": "newuser@example.com",
                 "first_name": "John",
                 "last_name": "Doe",
@@ -185,6 +199,8 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = UserRegisterSerializer
     # Route publique : un visiteur doit pouvoir créer un compte sans être connecté.
     permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle, ScopedRateThrottle]
+    throttle_scope = "register"
 
     def create(self, request, *args, **kwargs):
         """
@@ -243,12 +259,17 @@ class LogoutView(generics.GenericAPIView):
     """
     Vue pour déconnecter l'utilisateur côté backend.
 
-    Supprime le cookie HttpOnly refresh_token afin d'empêcher le navigateur de
-    recréer une session via un endpoint de refresh après un logout frontend.
+    Révoque le refresh token serveur via la blacklist SimpleJWT, puis supprime
+    le cookie HttpOnly refresh_token afin d'empêcher le navigateur de recréer
+    une session via un endpoint de refresh après un logout frontend.
     """
     permission_classes = [AllowAny]
 
     def post(self, request):
+        refresh_token = request.COOKIES.get(REFRESH_TOKEN_COOKIE_NAME)
+        if refresh_token:
+            blacklist_refresh_token(refresh_token)
+
         response = Response(
             {"message": "Déconnexion réussie"},
             status=status.HTTP_200_OK
@@ -266,6 +287,8 @@ class CookieTokenRefreshView(generics.GenericAPIView):
     normalement le refresh token dans le body JSON.
     """
     permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle, ScopedRateThrottle]
+    throttle_scope = "token_refresh"
 
     def post(self, request):
         refresh_token = request.COOKIES.get(REFRESH_TOKEN_COOKIE_NAME)
@@ -276,18 +299,26 @@ class CookieTokenRefreshView(generics.GenericAPIView):
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
+        serializer = TokenRefreshSerializer(data={"refresh": refresh_token})
         try:
-            refresh = RefreshToken(refresh_token)
-        except TokenError:
-            return Response(
+            serializer.is_valid(raise_exception=True)
+        except (AuthenticationFailed, TokenError, User.DoesNotExist):
+            response = Response(
                 {"message": "Refresh token invalide ou expiré."},
                 status=status.HTTP_401_UNAUTHORIZED
             )
+            delete_refresh_token_cookie(response)
+            return response
 
-        return Response(
-            {"access": str(refresh.access_token)},
+        response = Response(
+            {"access": serializer.validated_data["access"]},
             status=status.HTTP_200_OK
         )
+        rotated_refresh_token = serializer.validated_data.get("refresh")
+        if rotated_refresh_token:
+            set_refresh_token_cookie(response, rotated_refresh_token)
+
+        return response
 
 
 class RequestPasswordResetEmailView(generics.GenericAPIView):
@@ -324,6 +355,8 @@ class RequestPasswordResetEmailView(generics.GenericAPIView):
     serializer_class = PasswordResetRequestSerializer
     # Route publique : permet de demander un reset password sans être connecté.
     permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle, ScopedRateThrottle]
+    throttle_scope = "password_reset_request"
 
     def post(self, request):
         """
@@ -445,6 +478,8 @@ class PasswordResetConfirmView(generics.GenericAPIView):
     serializer_class = PasswordResetConfirmSerializer
     # Route publique : permet de finaliser le reset password depuis le lien reçu.
     permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle, ScopedRateThrottle]
+    throttle_scope = "password_reset_confirm"
 
     def post(self, request):
         """
@@ -486,7 +521,7 @@ class PasswordResetConfirmView(generics.GenericAPIView):
         
         Security:
             - Token signé cryptographiquement avec clé secrète Django
-            - Token avec timeout (24h par défaut)
+            - Token avec timeout configuré à 2 heures
             - Mot de passe haché avec PBKDF2 (ou bcrypt si configuré)
             - Utilisateur doit réauthentifier lors de la prochaine connexion
         

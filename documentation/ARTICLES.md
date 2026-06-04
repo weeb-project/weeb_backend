@@ -25,6 +25,26 @@ GET /articles/:slug/
 Ces routes utilisent `AllowAny` ou une permission custom qui autorise les méthodes
 de lecture.
 
+Les réponses publiques exposent l'auteur avec un format minimal :
+
+```json
+{
+  "author": {
+    "id": "4f9b5f49-f2d4-4e2d-8b82-cd944c4b6f86",
+    "first_name": "John",
+    "last_name": "Doe"
+  },
+  "title": "Mon article",
+  "content": "Contenu de l'article",
+  "slug": "mon-article",
+  "created_at": "2026-06-04T10:00:00Z",
+  "updated_at": "2026-06-04T10:00:00Z"
+}
+```
+
+Pour éviter d'exposer des informations utilisateur sensibles sur des endpoints
+publics, l'auteur d'un article ne contient pas `email`, `is_staff` ou `is_active`.
+
 ## Écriture
 
 La création demande un utilisateur connecté et actif :
