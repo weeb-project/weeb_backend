@@ -68,10 +68,10 @@ avec les credentials/cookies activés, puis supprimer son access token local.
 L'endpoint renvoie un cookie `refresh_token` expiré pour empêcher une reconnexion
 automatique via un refresh token encore présent dans le navigateur.
 
-## Login et register
+## Login
 
-`POST /users/login/` et `POST /users/register/` renvoient l'access token dans le JSON
-et placent le refresh token dans un cookie sécurisé :
+`POST /users/login/` renvoie l'access token dans le JSON et place le refresh token
+dans un cookie sécurisé :
 
 ```text
 refresh_token
@@ -95,6 +95,37 @@ En cas d'identifiants invalides, le login renvoie une erreur personnalisée :
 {
   "error_code": "INVALID_CREDENTIALS",
   "message": "Email ou mot de passe incorrect"
+}
+```
+
+Si le compte existe mais n'a pas encore été validé par un administrateur :
+
+```json
+{
+  "error_code": "ACCOUNT_PENDING_APPROVAL",
+  "message": "Votre compte est en attente de validation par un administrateur"
+}
+```
+
+## Register
+
+`POST /users/register/` crée un compte inactif en attente de validation par un
+administrateur. Cette route ne renvoie pas de token et ne pose pas de cookie
+`refresh_token`.
+
+Réponse succès :
+
+```json
+{
+  "message": "Compte créé avec succès. Il doit être validé par un administrateur avant connexion.",
+  "user": {
+    "id": "4f9b5f49-f2d4-4e2d-8b82-cd944c4b6f86",
+    "email": "newuser@example.com",
+    "first_name": "John",
+    "last_name": "Doe",
+    "is_staff": false,
+    "is_active": false
+  }
 }
 ```
 

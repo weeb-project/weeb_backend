@@ -147,15 +147,14 @@ class RegisterView(generics.CreateAPIView):
     Vue pour l'enregistrement (création) d'un nouvel utilisateur.
     
     Hérite de CreateAPIView de Django REST Framework. Reçoit les données d'inscription,
-    les valide via UserRegisterSerializer, crée l'utilisateur, génère les tokens JWT
-    (access et refresh), et configure le cookie refresh_token avec les paramètres
-    de sécurité appropriés.
+    les valide via UserRegisterSerializer, puis crée un utilisateur inactif en attente
+    de validation par un administrateur.
     
     Attributes:
         serializer_class (Serializer): UserRegisterSerializer pour valider et créer l'utilisateur.
     
     Methods:
-        create: Crée un nouvel utilisateur et génère les tokens JWT.
+        create: Crée un nouvel utilisateur en attente de validation.
     
     HTTP Methods:
         POST: Endpoint pour l'enregistrement
@@ -172,15 +171,14 @@ class RegisterView(generics.CreateAPIView):
         
         Response 201:
         {
-            "message": "Utilisateur créé avec succès",
-            "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+            "message": "Compte créé avec succès. Il doit être validé par un administrateur avant connexion.",
             "user": {
                 "id": 2,
                 "email": "newuser@example.com",
                 "first_name": "John",
                 "last_name": "Doe",
                 "is_staff": false,
-                "is_active": true
+                "is_active": false
             }
         }
     """
@@ -190,12 +188,11 @@ class RegisterView(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         """
-        Crée un nouvel utilisateur et génère les tokens JWT pour la connexion automatique.
+        Crée un nouvel utilisateur inactif en attente de validation administrateur.
         
         Cette méthode valide les données d'inscription, crée l'utilisateur via le serializer,
-        génère immédiatement les tokens JWT (pour éviter une étape de connexion supplémentaire),
-        sérialise les données utilisateur, et configure le cookie refresh_token avec
-        les paramètres de sécurité appropriés.
+        puis sérialise les données utilisateur. Aucun token n'est renvoyé tant que le
+        compte n'a pas été activé par un administrateur.
         
         Args:
             request (Request): Objet requête DRF contenant les données d'inscription.
@@ -206,9 +203,6 @@ class RegisterView(generics.CreateAPIView):
             Response: Réponse JSON 201 (Created) avec:
                 - message (str): Message de succès
                 - user (dict): Données utilisateur sérialisées
-                - access (str): Token JWT d'accès à inclure dans Authorization header
-            
-            + Cookie "refresh_token" défini avec options de sécurité.
         
         Raises:
             ValidationError: Si les données d'inscription sont invalides (400)
@@ -217,8 +211,6 @@ class RegisterView(generics.CreateAPIView):
                 - WEAK_PASSWORD: Mot de passe trop faible
         
         Security:
-            - refresh_token cookie: HttpOnly=True, Secure configurable, SameSite configurable
-            - Durée du cookie: 7 jours
             - Mot de passe haché de manière sécurisée via set_password()
         
         Example:
@@ -239,18 +231,10 @@ class RegisterView(generics.CreateAPIView):
         # créer l'user
         user = serializer.save()
 
-        # Vue gère les tokens et cookies
-        refresh = RefreshToken.for_user(user)
-        access_token = str(refresh.access_token)
-        refresh_token = str(refresh)
-
         response = Response({
-            "message": "Utilisateur créé avec succès",
+            "message": "Compte créé avec succès. Il doit être validé par un administrateur avant connexion.",
             "user": UserSerializer(user).data,
-            "access": access_token
         }, status=status.HTTP_201_CREATED)
-
-        set_refresh_token_cookie(response, refresh_token)
 
         return response
 
