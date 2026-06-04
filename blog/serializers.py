@@ -6,6 +6,7 @@ from users.serializers import PublicAuthorSerializer
 
 
 def build_unique_slug(title):
+    """Construit un slug unique à partir du titre de l'article."""
     base_slug = slugify(title) or 'article'
     base_slug = base_slug[:255]
     slug = base_slug
@@ -20,6 +21,7 @@ def build_unique_slug(title):
 
 
 class ArticleSerializer(serializers.ModelSerializer):
+    """Serializer des articles avec auteur connecté et slug généré côté API."""
     author = PublicAuthorSerializer(read_only=True)
     author_id = serializers.UUIDField(write_only=True, required=False)
 
@@ -29,7 +31,7 @@ class ArticleSerializer(serializers.ModelSerializer):
         read_only_fields = ['slug', 'created_at', 'updated_at']
 
     def create(self, validated_data):
-        # À la création, l'auteur est l'utilisateur connecté
+        """Crée un article pour l'utilisateur connecté."""
         validated_data.pop('author_id', None)
         validated_data['author'] = self.context['request'].user
         validated_data['slug'] = build_unique_slug(validated_data['title'])
