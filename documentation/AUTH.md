@@ -181,6 +181,10 @@ En cas d'email déjà utilisé à l'inscription :
 }
 ```
 
+La vérification est insensible à la casse : `user@example.com` et
+`User@example.com` sont considérés comme le même email. L'API renvoie donc une
+erreur `400` contrôlée plutôt qu'une erreur serveur.
+
 ## Refresh token
 
 La route existe :

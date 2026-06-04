@@ -8,8 +8,10 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 
 User = get_user_model()
 
+
 def normalize_email(value):
     return User.objects.normalize_email(value).lower()
+
 
 def validate_password_strength(value):
     """
@@ -117,13 +119,13 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
     def validate(self, attrs):
         email_field = self.username_field
+        user = None
         if attrs.get(email_field):
-            attrs[email_field] = normalize_email(attrs[email_field])
+            normalized_email = normalize_email(attrs[email_field])
+            user = User.objects.filter(email__iexact=normalized_email).first()
+            attrs[email_field] = user.email if user else normalized_email
 
-        email = attrs.get(email_field)
         password = attrs.get('password')
-        user = User.objects.filter(email__iexact=email).first()
-
         if user and not user.is_active and user.check_password(password):
             raise AuthenticationFailed({
                 "error_code": "ACCOUNT_PENDING_APPROVAL",
@@ -257,16 +259,16 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         # 1. Vérifier que l'email n'existe pas
         if User.objects.filter(email__iexact=email).exists():
             raise ValidationError({
-            "error_code": "EMAIL_ALREADY_EXISTS",
-            "message": "Cet email existe déjà"
-        })
+                "error_code": "EMAIL_ALREADY_EXISTS",
+                "message": "Cet email existe déjà"
+            })
 
         # 2. Vérifier que les mots de passe correspondent
         if password != password_confirm:
             raise ValidationError({
-            "error_code": "PASSWORD_MISMATCH",
-            "message": "Les mots de passe ne correspondent pas"
-        })
+                "error_code": "PASSWORD_MISMATCH",
+                "message": "Les mots de passe ne correspondent pas"
+            })
 
         # 3. Valider la force du mot de passe
         validate_password_strength(password)

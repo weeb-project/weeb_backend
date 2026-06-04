@@ -63,7 +63,7 @@ interne Django reste un entier afin de ne pas casser les relations SQL existante
 Conséquences :
 
 - les utilisateurs se connectent avec leur email
-- l'email est obligatoire et unique, y compris si seule la casse change
+- l'email est obligatoire et unique, sans distinction de casse
 - la commande `createsuperuser` demande l'email au lieu d'un username
 - le modèle reste compatible avec les champs standards de Django comme `first_name`, `last_name`, `is_active`, `is_staff`, `is_superuser` et `date_joined`
 
@@ -77,6 +77,10 @@ Le projet définit donc `CustomUserManager`, basé sur `BaseUserManager`, avec d
 - `create_superuser(email, password, **extra_fields)` : crée un administrateur avec `is_staff=True`, `is_superuser=True` et `is_active=True`
 
 Le manager normalise l'email avec `normalize_email().lower()`, vérifie que l'email et le mot de passe sont fournis, puis hache le mot de passe avec `set_password()`.
+
+Les serializers API appliquent la même normalisation et vérifient les doublons
+avec `email__iexact`, afin que `user@example.com` et `User@example.com` soient
+considérés comme le même compte.
 
 Le modèle lie ce manager avec :
 
