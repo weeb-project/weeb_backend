@@ -159,6 +159,8 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=2),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'public_id',
+    'USER_ID_CLAIM': 'user_id',
 }
 
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')

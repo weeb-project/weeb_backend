@@ -59,6 +59,7 @@ class LogoutTests(TestCase):
         self.assertIn('refresh_token', response.cookies)
         self.assertEqual(response.cookies['refresh_token'].value, '')
         self.assertEqual(response.cookies['refresh_token']['max-age'], 0)
+        self.assertEqual(response.cookies['refresh_token']['path'], '/')
         self.assertEqual(
             response.cookies['refresh_token']['samesite'],
             settings.REFRESH_TOKEN_COOKIE_SAMESITE
@@ -140,6 +141,51 @@ class LoginSerializerTests(TestCase):
 
         self.assertEqual(context.exception.detail['error_code'], 'INVALID_CREDENTIALS')
         self.assertEqual(context.exception.detail['message'], 'Email ou mot de passe incorrect')
+
+
+class LoginViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse('login')
+
+    def test_login_accepts_email_with_different_case(self):
+        CustomUser.objects.create_user(
+            email='user@example.com',
+            password='InitialPass123!',
+        )
+
+        response = self.client.post(self.url, {
+            'email': 'User@Example.COM',
+            'password': 'InitialPass123!',
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['user']['email'], 'user@example.com')
+        self.assertIn('access', response.data)
+        self.assertIn('refresh_token', response.cookies)
+
+    def test_login_returns_authenticated_user_data(self):
+        user = CustomUser.objects.create_user(
+            email='user@example.com',
+            password='InitialPass123!',
+            first_name='Jane',
+            last_name='Doe',
+        )
+
+        response = self.client.post(self.url, {
+            'email': 'user@example.com',
+            'password': 'InitialPass123!',
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['user']['id'], str(user.public_id))
+        self.assertEqual(response.data['user']['email'], 'user@example.com')
+        self.assertEqual(response.data['user']['first_name'], 'Jane')
+        self.assertEqual(response.data['user']['last_name'], 'Doe')
+        self.assertFalse(response.data['user']['is_staff'])
+        self.assertTrue(response.data['user']['is_active'])
+        self.assertIn('access', response.data)
+        self.assertIn('refresh_token', response.cookies)
 
 
 @override_settings(

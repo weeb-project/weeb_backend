@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.base_user import BaseUserManager
@@ -120,6 +122,7 @@ class CustomUser(AbstractUser):
 
     # L'email reste obligatoire et unique
     email = models.EmailField(_('adresse email'), unique=True, blank=False)
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
 
     # On indique à Django que l'email est le nouvel identifiant de connexion
     USERNAME_FIELD = 'email'

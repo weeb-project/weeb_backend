@@ -69,6 +69,14 @@ DELETE /articles/:slug/
 POST /contact/
 ```
 
+`POST /users/logout/` supprime le cookie HttpOnly `refresh_token`. Le frontend
+doit aussi appeler cette route avec les credentials/cookies activés, sinon le
+navigateur peut ignorer le `Set-Cookie` qui expire le cookie :
+
+```js
+withCredentials: true
+```
+
 `POST /users/token/refresh/` lit le refresh token depuis le cookie HttpOnly
 `refresh_token`. Le frontend doit appeler cette route avec les credentials/cookies
 activés, sans body obligatoire :

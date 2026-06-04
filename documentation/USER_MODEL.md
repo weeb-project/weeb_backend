@@ -37,6 +37,15 @@ USERNAME_FIELD = 'email'
 REQUIRED_FIELDS = []
 ```
 
+Le modèle expose aussi un identifiant public non prédictible :
+
+```python
+public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+```
+
+L'API renvoie ce UUID dans le champ `id` des réponses utilisateur. La clé primaire
+interne Django reste un entier afin de ne pas casser les relations SQL existantes.
+
 Conséquences :
 
 - les utilisateurs se connectent avec leur email
