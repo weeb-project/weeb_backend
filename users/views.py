@@ -8,15 +8,21 @@ from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from rest_framework import generics, status
 from rest_framework.exceptions import AuthenticationFailed
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle, ScopedRateThrottle
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .serializers import CustomTokenObtainPairSerializer, UserRegisterSerializer, UserSerializer, \
-    PasswordResetRequestSerializer, PasswordResetConfirmSerializer
+from .serializers import (
+    AdminUserSerializer,
+    CustomTokenObtainPairSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
+    UserRegisterSerializer,
+    UserSerializer,
+)
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -253,6 +259,37 @@ class RegisterView(generics.CreateAPIView):
         }, status=status.HTTP_201_CREATED)
 
         return response
+
+
+class CurrentUserView(generics.RetrieveAPIView):
+    """
+    Vue protégée qui renvoie les informations de l'utilisateur connecté.
+    """
+    serializer_class = UserSerializer
+
+    def get_object(self):
+        return self.request.user
+
+
+class AdminUserListView(generics.ListAPIView):
+    """
+    Vue réservée aux admins pour lister les utilisateurs.
+    """
+    serializer_class = AdminUserSerializer
+    permission_classes = [IsAdminUser]
+    queryset = User.objects.order_by('-date_joined')
+
+
+class AdminUserDetailView(generics.RetrieveUpdateAPIView):
+    """
+    Vue réservée aux admins pour consulter ou mettre à jour un utilisateur.
+    """
+    serializer_class = AdminUserSerializer
+    permission_classes = [IsAdminUser]
+    queryset = User.objects.all()
+    lookup_field = 'public_id'
+    lookup_url_kwarg = 'user_id'
+    http_method_names = ['get', 'patch', 'head', 'options']
 
 
 class LogoutView(generics.GenericAPIView):

@@ -233,6 +233,28 @@ GET /articles/
 GET /articles/:slug/
 ```
 
+La route utilisateur courant est protégée :
+
+```text
+GET /users/
+Authorization: Bearer <access_token>
+```
+
+Les routes d'administration utilisateur sont protégées par `IsAdminUser`.
+Elles demandent donc un utilisateur connecté avec `is_staff=true` :
+
+```text
+GET /api/admin/users/
+GET /api/admin/users/:id/
+PATCH /api/admin/users/:id/
+Authorization: Bearer <access_token>
+```
+
+`PATCH /api/admin/users/:id/` accepte les champs `first_name`, `last_name`,
+`is_active` et `is_staff`. Il permet notamment de valider un compte en attente
+avec `{"is_active": true}`. Un admin ne peut pas désactiver son propre compte ou
+retirer ses propres droits admin via cette route.
+
 Les routes d'écriture sont protégées :
 
 ```text
@@ -241,6 +263,9 @@ PUT /articles/:slug/
 PATCH /articles/:slug/
 DELETE /articles/:slug/
 ```
+
+Pour `PUT`, `PATCH` et `DELETE`, l'utilisateur doit être le propriétaire de
+l'article ou un admin actif (`is_staff=true`).
 
 Le formulaire de contact est public :
 

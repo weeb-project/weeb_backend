@@ -84,6 +84,42 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'email', 'first_name', 'last_name', 'is_staff', 'is_active']
 
 
+class AdminUserSerializer(serializers.ModelSerializer):
+    """
+    Serializer admin pour consulter et valider les utilisateurs.
+    """
+    id = serializers.UUIDField(source='public_id', read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'id',
+            'email',
+            'first_name',
+            'last_name',
+            'is_staff',
+            'is_active',
+            'date_joined',
+        ]
+        read_only_fields = ['id', 'email', 'date_joined']
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        if request and self.instance == request.user:
+            if attrs.get('is_active') is False:
+                raise ValidationError({
+                    "error_code": "CANNOT_DEACTIVATE_SELF",
+                    "message": "Vous ne pouvez pas désactiver votre propre compte"
+                })
+            if attrs.get('is_staff') is False:
+                raise ValidationError({
+                    "error_code": "CANNOT_REMOVE_OWN_ADMIN_ACCESS",
+                    "message": "Vous ne pouvez pas retirer vos propres droits admin"
+                })
+
+        return attrs
+
+
 class PublicAuthorSerializer(serializers.ModelSerializer):
     """
     Serializer public minimal pour afficher l'auteur d'un contenu exposé publiquement.

@@ -57,7 +57,8 @@ Authorization: Bearer <access_token>
 Le backend ignore `author_id` à la création et utilise toujours l'utilisateur connecté
 comme auteur.
 
-La modification et la suppression sont réservées au propriétaire de l'article :
+La modification et la suppression sont réservées au propriétaire de l'article ou
+à un admin actif (`is_staff=true`) :
 
 ```text
 PUT /articles/:slug/
