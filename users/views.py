@@ -345,7 +345,7 @@ class RequestPasswordResetEmailView(generics.GenericAPIView):
         email = serializer.validated_data['email']
 
         # Cherche l'utilisateur (silencieusement, sans révéler son existence)
-        user = User.objects.filter(email=email).first()
+        user = User.objects.filter(email__iexact=email).first()
 
         if user:
             # Génère les éléments du lien de réinitialisation
