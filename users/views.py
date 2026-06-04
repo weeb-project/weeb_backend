@@ -28,7 +28,16 @@ def set_refresh_token_cookie(response, refresh_token):
         httponly=True,
         secure=settings.REFRESH_TOKEN_COOKIE_SECURE,
         samesite=settings.REFRESH_TOKEN_COOKIE_SAMESITE,
-        max_age=REFRESH_TOKEN_COOKIE_MAX_AGE
+        max_age=REFRESH_TOKEN_COOKIE_MAX_AGE,
+        path="/",
+    )
+
+
+def delete_refresh_token_cookie(response):
+    response.delete_cookie(
+        key=REFRESH_TOKEN_COOKIE_NAME,
+        path="/",
+        samesite=settings.REFRESH_TOKEN_COOKIE_SAMESITE,
     )
 
 
@@ -117,17 +126,18 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             >>> response.data['access']
             'eyJ0eXAiOiJKV1QiLCJhbGc...'
         """
-        response = super().post(request, *args, **kwargs)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if response.status_code == 200:
-            refresh_token = response.data.get("refresh")
-            access_token = response.data.get("access")
-            set_refresh_token_cookie(response, refresh_token)
-            response.data = {
-                "message": "Connexion réussie",
-                "access": access_token,
-                "user": UserSerializer(request.user).data  
-            }
+        refresh_token = serializer.validated_data.get("refresh")
+        access_token = serializer.validated_data.get("access")
+
+        response = Response({
+            "message": "Connexion réussie",
+            "access": access_token,
+            "user": UserSerializer(serializer.user).data
+        }, status=status.HTTP_200_OK)
+        set_refresh_token_cookie(response, refresh_token)
 
         return response
 
@@ -259,11 +269,7 @@ class LogoutView(generics.GenericAPIView):
             {"message": "Déconnexion réussie"},
             status=status.HTTP_200_OK
         )
-        response.delete_cookie(
-            key=REFRESH_TOKEN_COOKIE_NAME,
-            secure=settings.REFRESH_TOKEN_COOKIE_SECURE,
-            samesite=settings.REFRESH_TOKEN_COOKIE_SAMESITE,
-        )
+        delete_refresh_token_cookie(response)
         return response
 
 
@@ -361,7 +367,7 @@ class RequestPasswordResetEmailView(generics.GenericAPIView):
         
         Note:
             Le lien généré contient :
-            - uidb64: ID utilisateur encodé en base64 (URL-safe)
+            - uidb64: UUID public utilisateur encodé en base64 (URL-safe)
             - token: Token cryptographique signé généré par Django
             Format: {frontend_url}/reset-password?uidb64={uidb64}&token={token}
         
@@ -385,7 +391,7 @@ class RequestPasswordResetEmailView(generics.GenericAPIView):
         if user:
             # Génère les éléments du lien de réinitialisation
             # Encoder l'ID de l'utilisateur en base64 (rend l'ID "URL-safe")
-            uidb64 = urlsafe_base64_encode(force_bytes(user.id))
+            uidb64 = urlsafe_base64_encode(force_bytes(user.public_id))
             # Générer le token cryptographique
             token = PasswordResetTokenGenerator().make_token(user)
 
@@ -442,7 +448,7 @@ class PasswordResetConfirmView(generics.GenericAPIView):
     Example:
         POST /users/password-reset/confirm/
         {
-            "uidb64": "MQ==",
+            "uidb64": "uuid-public-encode",
             "token": "abcd1234efgh5678-ijklmnopqr",
             "password": "NewSecurePass123!"
         }
@@ -462,7 +468,7 @@ class PasswordResetConfirmView(generics.GenericAPIView):
         
         Cette méthode constitue la deuxième étape du processus reset password :
         1. Valide le nouveau mot de passe via PasswordResetConfirmSerializer.validate_password()
-        2. Décode l'uidb64 depuis base64 pour récupérer l'ID utilisateur
+        2. Décode l'uidb64 depuis base64 pour récupérer l'UUID public utilisateur
         3. Récupère l'utilisateur en base de données
         4. Vérifie que le token est valide et n'a pas expiré
         5. Met à jour le mot de passe de l'utilisateur de manière sécurisée
@@ -502,7 +508,7 @@ class PasswordResetConfirmView(generics.GenericAPIView):
         
         Example:
             >>> response = client.post('/users/password-reset/confirm/', {
-            ...     'uidb64': 'MQ==',
+            ...     'uidb64': 'uuid-public-encode',
             ...     'token': 'abcd1234-efgh5678',
             ...     'password': 'NewSecurePass123!'
             ... })
@@ -520,8 +526,8 @@ class PasswordResetConfirmView(generics.GenericAPIView):
 
         try:
             # 1. Décode l'ID utilisateur depuis base64
-            user_id = force_str(urlsafe_base64_decode(uidb64))
-            user = User.objects.get(id=user_id)
+            user_public_id = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(public_id=user_public_id)
 
             # 2. Vérifie que le token est valide et non expiré
             if not PasswordResetTokenGenerator().check_token(user, token):

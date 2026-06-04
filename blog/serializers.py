@@ -21,7 +21,7 @@ def build_unique_slug(title):
 
 class ArticleSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
-    author_id = serializers.IntegerField(write_only=True, required=False)
+    author_id = serializers.UUIDField(write_only=True, required=False)
 
     class Meta:
         model = Article
