@@ -37,17 +37,101 @@ sur les vues publiques suivantes :
 
 ```text
 POST /users/login/
+POST /users/logout/
 POST /users/register/
+POST /users/token/refresh/
 POST /users/password-reset/request/
 POST /users/password-reset/confirm/
+GET /articles/
+GET /articles/:slug/
 ```
 
 Ces routes sont publiques parce qu'un utilisateur non connecté doit pouvoir :
 
 - se connecter
+- supprimer le cookie refresh_token lors de la déconnexion
 - créer un compte
+- demander un nouvel access token à partir d'un refresh token
 - demander une réinitialisation de mot de passe
 - confirmer une réinitialisation de mot de passe
+- lire les articles
+
+## Déconnexion
+
+Le frontend doit appeler :
+
+```text
+POST /users/logout/
+```
+
+avec les credentials/cookies activés, puis supprimer son access token local.
+L'endpoint renvoie un cookie `refresh_token` expiré pour empêcher une reconnexion
+automatique via un refresh token encore présent dans le navigateur.
+
+## Login et register
+
+`POST /users/login/` et `POST /users/register/` renvoient l'access token dans le JSON
+et placent le refresh token dans un cookie sécurisé :
+
+```text
+refresh_token
+HttpOnly=True
+Secure=True en production HTTPS, False en local HTTP
+SameSite=Strict
+Max-Age=7 jours
+```
+
+Le frontend doit stocker l'access token côté application et envoyer :
+
+```text
+Authorization: Bearer <access_token>
+```
+
+sur les routes protégées.
+
+En cas d'identifiants invalides, le login renvoie une erreur personnalisée :
+
+```json
+{
+  "error_code": "INVALID_CREDENTIALS",
+  "message": "Email ou mot de passe incorrect"
+}
+```
+
+En cas d'email déjà utilisé à l'inscription :
+
+```json
+{
+  "error_code": "EMAIL_ALREADY_EXISTS",
+  "message": "Cet email existe déjà"
+}
+```
+
+## Refresh token
+
+La route existe :
+
+```text
+POST /users/token/refresh/
+```
+
+Elle lit le refresh token depuis le cookie HttpOnly `refresh_token`.
+Le frontend doit appeler cette route avec les credentials/cookies activés, sans
+envoyer le refresh token dans le body :
+
+```text
+withCredentials: true
+```
+
+En cas de succès, la réponse contient un nouvel access token :
+
+```json
+{
+  "access": "..."
+}
+```
+
+Si le cookie est absent, invalide ou expiré, la route renvoie une erreur `401`.
 
 ## Logique pour les futures routes
 
@@ -58,29 +142,29 @@ Privé par défaut.
 Public uniquement si la route déclare explicitement AllowAny.
 ```
 
-Quand le blog/articles sera implémenté, les routes de lecture devront être publiques :
+Les routes articles suivent déjà cette règle.
 
 ```text
 GET /articles/
-GET /articles/:id/
+GET /articles/:slug/
 ```
 
-Les routes d'écriture devront rester protégées :
+Les routes d'écriture sont protégées :
 
 ```text
 POST /articles/
-PUT /articles/:id/
-PATCH /articles/:id/
-DELETE /articles/:id/
+PUT /articles/:slug/
+PATCH /articles/:slug/
+DELETE /articles/:slug/
 ```
 
-Quand le formulaire de contact sera implémenté, son endpoint devra être public :
+Le formulaire de contact est public :
 
 ```text
 POST /contact/
 ```
 
-Il devra donc utiliser :
+Il utilise donc :
 
 ```python
 permission_classes = [AllowAny]

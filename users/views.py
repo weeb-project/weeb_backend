@@ -9,6 +9,7 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import CustomTokenObtainPairSerializer, UserRegisterSerializer, UserSerializer, \
@@ -16,6 +17,19 @@ from .serializers import CustomTokenObtainPairSerializer, UserRegisterSerializer
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
+REFRESH_TOKEN_COOKIE_NAME = "refresh_token"
+REFRESH_TOKEN_COOKIE_MAX_AGE = 7 * 24 * 60 * 60
+
+
+def set_refresh_token_cookie(response, refresh_token):
+    response.set_cookie(
+        key=REFRESH_TOKEN_COOKIE_NAME,
+        value=refresh_token,
+        httponly=True,
+        secure=settings.REFRESH_TOKEN_COOKIE_SECURE,
+        samesite=settings.REFRESH_TOKEN_COOKIE_SAMESITE,
+        max_age=REFRESH_TOKEN_COOKIE_MAX_AGE
+    )
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -90,7 +104,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             (Gérée par le serializer parent)
         
         Security:
-            - refresh_token cookie: HttpOnly=True, Secure=True, SameSite=Strict
+            - refresh_token cookie: HttpOnly=True, Secure configurable, SameSite configurable
             - Durée du cookie: 7 jours
         
         Example:
@@ -108,14 +122,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         if response.status_code == 200:
             refresh_token = response.data.get("refresh")
             access_token = response.data.get("access")
-            response.set_cookie(
-                key="refresh_token",
-                value=refresh_token,
-                httponly=True,
-                secure=True,
-                samesite="Strict",
-                max_age=7 * 24 * 60 * 60
-            )
+            set_refresh_token_cookie(response, refresh_token)
             response.data = {
                 "message": "Connexion réussie",
                 "access": access_token,
@@ -200,7 +207,7 @@ class RegisterView(generics.CreateAPIView):
                 - WEAK_PASSWORD: Mot de passe trop faible
         
         Security:
-            - refresh_token cookie: HttpOnly=True, Secure=True, SameSite=Strict
+            - refresh_token cookie: HttpOnly=True, Secure configurable, SameSite configurable
             - Durée du cookie: 7 jours
             - Mot de passe haché de manière sécurisée via set_password()
         
@@ -233,16 +240,64 @@ class RegisterView(generics.CreateAPIView):
             "access": access_token
         }, status=status.HTTP_201_CREATED)
 
-        response.set_cookie(
-            key="refresh_token",
-            value=refresh_token,
-            httponly=True,
-            secure=True,
-            samesite="Strict",
-            max_age=7 * 24 * 60 * 60
-        )
+        set_refresh_token_cookie(response, refresh_token)
 
         return response
+
+
+class LogoutView(generics.GenericAPIView):
+    """
+    Vue pour déconnecter l'utilisateur côté backend.
+
+    Supprime le cookie HttpOnly refresh_token afin d'empêcher le navigateur de
+    recréer une session via un endpoint de refresh après un logout frontend.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        response = Response(
+            {"message": "Déconnexion réussie"},
+            status=status.HTTP_200_OK
+        )
+        response.delete_cookie(
+            key=REFRESH_TOKEN_COOKIE_NAME,
+            secure=settings.REFRESH_TOKEN_COOKIE_SECURE,
+            samesite=settings.REFRESH_TOKEN_COOKIE_SAMESITE,
+        )
+        return response
+
+
+class CookieTokenRefreshView(generics.GenericAPIView):
+    """
+    Vue publique qui régénère un access token depuis le cookie HttpOnly refresh_token.
+
+    Le frontend ne peut pas lire ce cookie, il l'envoie seulement avec
+    withCredentials. Cette vue remplace donc la vue SimpleJWT standard, qui attend
+    normalement le refresh token dans le body JSON.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        refresh_token = request.COOKIES.get(REFRESH_TOKEN_COOKIE_NAME)
+
+        if not refresh_token:
+            return Response(
+                {"message": "Refresh token manquant."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            refresh = RefreshToken(refresh_token)
+        except TokenError:
+            return Response(
+                {"message": "Refresh token invalide ou expiré."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        return Response(
+            {"access": str(refresh.access_token)},
+            status=status.HTTP_200_OK
+        )
 
 
 class RequestPasswordResetEmailView(generics.GenericAPIView):

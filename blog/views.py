@@ -14,10 +14,15 @@ class IsOwnerOrReadOnly(permissions.BasePermission):
     Permission personnalisée : lecture pour tous,
     modification/suppression seulement pour le propriétaire actif.
     """
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return bool(request.user and request.user.is_authenticated and request.user.is_active)
+
     def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
             return True
-        return bool(obj.author == request.user and request.user.is_active)
+        return obj.author == request.user
 
 class ArticleListCreateView(generics.ListCreateAPIView):
     """
@@ -41,3 +46,4 @@ class ArticleDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Article.objects.all()
     serializer_class = ArticleSerializer
     permission_classes = [IsOwnerOrReadOnly]
+    lookup_field = 'slug'

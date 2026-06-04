@@ -44,18 +44,48 @@ CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 Dans le repo frontend, une variable d'environnement doit pointer vers l'API backend locale :
 
 ```env
-VITE_API_URL=http://127.0.0.1:8000
+VITE_API_URL=http://localhost:8000
 ```
+
+Utiliser le même host logique partout en local. Par exemple, si le frontend appelle
+`localhost:8000`, éviter d'appeler ensuite `127.0.0.1:8000`, car le cookie
+`refresh_token` peut ne pas être renvoyé.
 
 Les routes backend utilisées par le frontend sont :
 
 ```text
 POST /users/register/
 POST /users/login/
+POST /users/logout/
+POST /users/token/refresh/
 POST /users/password-reset/request/
 POST /users/password-reset/confirm/
+GET /articles/
+GET /articles/:slug/
+POST /articles/
+PUT /articles/:slug/
+PATCH /articles/:slug/
+DELETE /articles/:slug/
 POST /contact/
 ```
+
+`POST /users/token/refresh/` lit le refresh token depuis le cookie HttpOnly
+`refresh_token`. Le frontend doit appeler cette route avec les credentials/cookies
+activés, sans body obligatoire :
+
+```text
+withCredentials: true
+```
+
+En cas de succès, le backend renvoie :
+
+```json
+{
+  "access": "..."
+}
+```
+
+Si le cookie est absent, invalide ou expiré, la route renvoie `401`.
 
 ## Rôle du frontend
 

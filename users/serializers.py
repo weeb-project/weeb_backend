@@ -1,11 +1,14 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import AuthenticationFailed, ValidationError
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.core.exceptions import ValidationError as DjangoValidationError
 
 User = get_user_model()
+
+def normalize_email(value):
+    return User.objects.normalize_email(value).lower()
 
 def validate_password_strength(value):
     """
@@ -96,6 +99,19 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         >>> tokens = serializer.validated_data
         # Les tokens contiennent maintenant email, first_name, last_name, is_staff
     """
+    def validate(self, attrs):
+        email_field = self.username_field
+        if attrs.get(email_field):
+            attrs[email_field] = normalize_email(attrs[email_field])
+
+        try:
+            return super().validate(attrs)
+        except AuthenticationFailed:
+            raise AuthenticationFailed({
+                "error_code": "INVALID_CREDENTIALS",
+                "message": "Email ou mot de passe incorrect"
+            })
+
     @classmethod
     def get_token(cls, user):
         """
@@ -163,6 +179,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         >>> if serializer.is_valid():
         ...     user = serializer.save()
     """
+    email = serializers.EmailField(required=True, validators=[])
     password_confirm = serializers.CharField(write_only=True)
 
     class Meta:
@@ -206,12 +223,13 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             >>> validate({'email': 'new@example.com', 'password': 'pass1', 'password_confirm': 'pass2'})
             # Lève ValidationError avec PASSWORD_MISMATCH
         """
-        email = data.get('email')
+        email = normalize_email(data.get('email'))
         password = data.get('password')
         password_confirm = data.get('password_confirm')
+        data['email'] = email
 
         # 1. Vérifier que l'email n'existe pas
-        if User.objects.filter(email=email).exists():
+        if User.objects.filter(email__iexact=email).exists():
             raise ValidationError({
             "error_code": "EMAIL_ALREADY_EXISTS",
             "message": "Cet email existe déjà"
@@ -284,6 +302,9 @@ class PasswordResetRequestSerializer(serializers.Serializer):
         ...     # Envoyer un email de réinitialisation
     """
     email = serializers.EmailField(required=True)
+
+    def validate_email(self, value):
+        return normalize_email(value)
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
     """
