@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.utils.text import slugify
 
 from .models import Article
-from users.serializers import UserSerializer
+from users.serializers import PublicAuthorSerializer
 
 
 def build_unique_slug(title):
@@ -20,8 +20,8 @@ def build_unique_slug(title):
 
 
 class ArticleSerializer(serializers.ModelSerializer):
-    author = UserSerializer(read_only=True)
-    author_id = serializers.IntegerField(write_only=True, required=False)
+    author = PublicAuthorSerializer(read_only=True)
+    author_id = serializers.UUIDField(write_only=True, required=False)
 
     class Meta:
         model = Article

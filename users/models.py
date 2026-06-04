@@ -1,6 +1,9 @@
+import uuid
+
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.base_user import BaseUserManager
+from django.db.models.functions import Lower
 from django.utils.translation import gettext_lazy as _
 
 # --- 1. LE MANAGER ---
@@ -120,6 +123,7 @@ class CustomUser(AbstractUser):
 
     # L'email reste obligatoire et unique
     email = models.EmailField(_('adresse email'), unique=True, blank=False)
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
 
     # On indique à Django que l'email est le nouvel identifiant de connexion
     USERNAME_FIELD = 'email'
@@ -133,6 +137,16 @@ class CustomUser(AbstractUser):
 
     # On lie notre modèle à notre nouveau gestionnaire
     objects = CustomUserManager()
+
+    class Meta:
+        verbose_name = _('user')
+        verbose_name_plural = _('users')
+        constraints = [
+            models.UniqueConstraint(
+                Lower('email'),
+                name='unique_customuser_email_ci',
+            ),
+        ]
 
     def __str__(self):
         """

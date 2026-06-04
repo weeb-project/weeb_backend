@@ -7,8 +7,12 @@ from django.core.mail import send_mail
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from rest_framework import generics, status
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle, ScopedRateThrottle
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import CustomTokenObtainPairSerializer, UserRegisterSerializer, UserSerializer, \
@@ -25,10 +29,28 @@ def set_refresh_token_cookie(response, refresh_token):
         key=REFRESH_TOKEN_COOKIE_NAME,
         value=refresh_token,
         httponly=True,
-        secure=True,
-        samesite="Strict",
-        max_age=REFRESH_TOKEN_COOKIE_MAX_AGE
+        secure=settings.REFRESH_TOKEN_COOKIE_SECURE,
+        samesite=settings.REFRESH_TOKEN_COOKIE_SAMESITE,
+        max_age=REFRESH_TOKEN_COOKIE_MAX_AGE,
+        path="/",
     )
+
+
+def delete_refresh_token_cookie(response):
+    response.delete_cookie(
+        key=REFRESH_TOKEN_COOKIE_NAME,
+        path="/",
+        samesite=settings.REFRESH_TOKEN_COOKIE_SAMESITE,
+    )
+
+
+def blacklist_refresh_token(refresh_token):
+    try:
+        RefreshToken(refresh_token).blacklist()
+    except TokenError:
+        # Le logout reste idempotent : un token invalide, expiré ou déjà
+        # blacklisté est quand même supprimé du navigateur.
+        pass
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -63,7 +85,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             "message": "Connexion réussie",
             "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
             "user": {
-                "id": 1,
+                "id": "4f9b5f49-f2d4-4e2d-8b82-cd944c4b6f86",
                 "email": "user@example.com",
                 "first_name": "John",
                 "last_name": "Doe",
@@ -75,6 +97,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
     # Route publique : un utilisateur doit pouvoir se connecter sans token JWT.
     permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle, ScopedRateThrottle]
+    throttle_scope = "login"
 
     def post(self, request, *args, **kwargs):
         """
@@ -103,7 +127,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             (Gérée par le serializer parent)
         
         Security:
-            - refresh_token cookie: HttpOnly=True, Secure=True, SameSite=Strict
+            - refresh_token cookie: HttpOnly=True, Secure configurable, SameSite configurable
             - Durée du cookie: 7 jours
         
         Example:
@@ -116,17 +140,18 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             >>> response.data['access']
             'eyJ0eXAiOiJKV1QiLCJhbGc...'
         """
-        response = super().post(request, *args, **kwargs)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if response.status_code == 200:
-            refresh_token = response.data.get("refresh")
-            access_token = response.data.get("access")
-            set_refresh_token_cookie(response, refresh_token)
-            response.data = {
-                "message": "Connexion réussie",
-                "access": access_token,
-                "user": UserSerializer(request.user).data  
-            }
+        refresh_token = serializer.validated_data.get("refresh")
+        access_token = serializer.validated_data.get("access")
+
+        response = Response({
+            "message": "Connexion réussie",
+            "access": access_token,
+            "user": UserSerializer(serializer.user).data
+        }, status=status.HTTP_200_OK)
+        set_refresh_token_cookie(response, refresh_token)
 
         return response
 
@@ -136,15 +161,14 @@ class RegisterView(generics.CreateAPIView):
     Vue pour l'enregistrement (création) d'un nouvel utilisateur.
     
     Hérite de CreateAPIView de Django REST Framework. Reçoit les données d'inscription,
-    les valide via UserRegisterSerializer, crée l'utilisateur, génère les tokens JWT
-    (access et refresh), et configure le cookie refresh_token avec les paramètres
-    de sécurité appropriés.
+    les valide via UserRegisterSerializer, puis crée un utilisateur inactif en attente
+    de validation par un administrateur.
     
     Attributes:
         serializer_class (Serializer): UserRegisterSerializer pour valider et créer l'utilisateur.
     
     Methods:
-        create: Crée un nouvel utilisateur et génère les tokens JWT.
+        create: Crée un nouvel utilisateur en attente de validation.
     
     HTTP Methods:
         POST: Endpoint pour l'enregistrement
@@ -161,30 +185,30 @@ class RegisterView(generics.CreateAPIView):
         
         Response 201:
         {
-            "message": "Utilisateur créé avec succès",
-            "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+            "message": "Compte créé avec succès. Il doit être validé par un administrateur avant connexion.",
             "user": {
-                "id": 2,
+                "id": "4f9b5f49-f2d4-4e2d-8b82-cd944c4b6f86",
                 "email": "newuser@example.com",
                 "first_name": "John",
                 "last_name": "Doe",
                 "is_staff": false,
-                "is_active": true
+                "is_active": false
             }
         }
     """
     serializer_class = UserRegisterSerializer
     # Route publique : un visiteur doit pouvoir créer un compte sans être connecté.
     permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle, ScopedRateThrottle]
+    throttle_scope = "register"
 
     def create(self, request, *args, **kwargs):
         """
-        Crée un nouvel utilisateur et génère les tokens JWT pour la connexion automatique.
+        Crée un nouvel utilisateur inactif en attente de validation administrateur.
         
         Cette méthode valide les données d'inscription, crée l'utilisateur via le serializer,
-        génère immédiatement les tokens JWT (pour éviter une étape de connexion supplémentaire),
-        sérialise les données utilisateur, et configure le cookie refresh_token avec
-        les paramètres de sécurité appropriés.
+        puis sérialise les données utilisateur. Aucun token n'est renvoyé tant que le
+        compte n'a pas été activé par un administrateur.
         
         Args:
             request (Request): Objet requête DRF contenant les données d'inscription.
@@ -195,9 +219,6 @@ class RegisterView(generics.CreateAPIView):
             Response: Réponse JSON 201 (Created) avec:
                 - message (str): Message de succès
                 - user (dict): Données utilisateur sérialisées
-                - access (str): Token JWT d'accès à inclure dans Authorization header
-            
-            + Cookie "refresh_token" défini avec options de sécurité.
         
         Raises:
             ValidationError: Si les données d'inscription sont invalides (400)
@@ -206,8 +227,6 @@ class RegisterView(generics.CreateAPIView):
                 - WEAK_PASSWORD: Mot de passe trop faible
         
         Security:
-            - refresh_token cookie: HttpOnly=True, Secure=True, SameSite=Strict
-            - Durée du cookie: 7 jours
             - Mot de passe haché de manière sécurisée via set_password()
         
         Example:
@@ -228,18 +247,10 @@ class RegisterView(generics.CreateAPIView):
         # créer l'user
         user = serializer.save()
 
-        # Vue gère les tokens et cookies
-        refresh = RefreshToken.for_user(user)
-        access_token = str(refresh.access_token)
-        refresh_token = str(refresh)
-
         response = Response({
-            "message": "Utilisateur créé avec succès",
+            "message": "Compte créé avec succès. Il doit être validé par un administrateur avant connexion.",
             "user": UserSerializer(user).data,
-            "access": access_token
         }, status=status.HTTP_201_CREATED)
-
-        set_refresh_token_cookie(response, refresh_token)
 
         return response
 
@@ -248,20 +259,65 @@ class LogoutView(generics.GenericAPIView):
     """
     Vue pour déconnecter l'utilisateur côté backend.
 
-    Supprime le cookie HttpOnly refresh_token afin d'empêcher le navigateur de
-    recréer une session via un endpoint de refresh après un logout frontend.
+    Révoque le refresh token serveur via la blacklist SimpleJWT, puis supprime
+    le cookie HttpOnly refresh_token afin d'empêcher le navigateur de recréer
+    une session via un endpoint de refresh après un logout frontend.
     """
     permission_classes = [AllowAny]
 
     def post(self, request):
+        refresh_token = request.COOKIES.get(REFRESH_TOKEN_COOKIE_NAME)
+        if refresh_token:
+            blacklist_refresh_token(refresh_token)
+
         response = Response(
             {"message": "Déconnexion réussie"},
             status=status.HTTP_200_OK
         )
-        response.delete_cookie(
-            key=REFRESH_TOKEN_COOKIE_NAME,
-            samesite="Strict",
+        delete_refresh_token_cookie(response)
+        return response
+
+
+class CookieTokenRefreshView(generics.GenericAPIView):
+    """
+    Vue publique qui régénère un access token depuis le cookie HttpOnly refresh_token.
+
+    Le frontend ne peut pas lire ce cookie, il l'envoie seulement avec
+    withCredentials. Cette vue remplace donc la vue SimpleJWT standard, qui attend
+    normalement le refresh token dans le body JSON.
+    """
+    permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle, ScopedRateThrottle]
+    throttle_scope = "token_refresh"
+
+    def post(self, request):
+        refresh_token = request.COOKIES.get(REFRESH_TOKEN_COOKIE_NAME)
+
+        if not refresh_token:
+            return Response(
+                {"message": "Refresh token manquant."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        serializer = TokenRefreshSerializer(data={"refresh": refresh_token})
+        try:
+            serializer.is_valid(raise_exception=True)
+        except (AuthenticationFailed, TokenError, User.DoesNotExist):
+            response = Response(
+                {"message": "Refresh token invalide ou expiré."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+            delete_refresh_token_cookie(response)
+            return response
+
+        response = Response(
+            {"access": serializer.validated_data["access"]},
+            status=status.HTTP_200_OK
         )
+        rotated_refresh_token = serializer.validated_data.get("refresh")
+        if rotated_refresh_token:
+            set_refresh_token_cookie(response, rotated_refresh_token)
+
         return response
 
 
@@ -299,6 +355,8 @@ class RequestPasswordResetEmailView(generics.GenericAPIView):
     serializer_class = PasswordResetRequestSerializer
     # Route publique : permet de demander un reset password sans être connecté.
     permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle, ScopedRateThrottle]
+    throttle_scope = "password_reset_request"
 
     def post(self, request):
         """
@@ -326,7 +384,7 @@ class RequestPasswordResetEmailView(generics.GenericAPIView):
         
         Note:
             Le lien généré contient :
-            - uidb64: ID utilisateur encodé en base64 (URL-safe)
+            - uidb64: UUID public utilisateur encodé en base64 (URL-safe)
             - token: Token cryptographique signé généré par Django
             Format: {frontend_url}/reset-password?uidb64={uidb64}&token={token}
         
@@ -350,7 +408,7 @@ class RequestPasswordResetEmailView(generics.GenericAPIView):
         if user:
             # Génère les éléments du lien de réinitialisation
             # Encoder l'ID de l'utilisateur en base64 (rend l'ID "URL-safe")
-            uidb64 = urlsafe_base64_encode(force_bytes(user.id))
+            uidb64 = urlsafe_base64_encode(force_bytes(user.public_id))
             # Générer le token cryptographique
             token = PasswordResetTokenGenerator().make_token(user)
 
@@ -407,7 +465,7 @@ class PasswordResetConfirmView(generics.GenericAPIView):
     Example:
         POST /users/password-reset/confirm/
         {
-            "uidb64": "MQ==",
+            "uidb64": "uuid-public-encode",
             "token": "abcd1234efgh5678-ijklmnopqr",
             "password": "NewSecurePass123!"
         }
@@ -420,6 +478,8 @@ class PasswordResetConfirmView(generics.GenericAPIView):
     serializer_class = PasswordResetConfirmSerializer
     # Route publique : permet de finaliser le reset password depuis le lien reçu.
     permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle, ScopedRateThrottle]
+    throttle_scope = "password_reset_confirm"
 
     def post(self, request):
         """
@@ -427,7 +487,7 @@ class PasswordResetConfirmView(generics.GenericAPIView):
         
         Cette méthode constitue la deuxième étape du processus reset password :
         1. Valide le nouveau mot de passe via PasswordResetConfirmSerializer.validate_password()
-        2. Décode l'uidb64 depuis base64 pour récupérer l'ID utilisateur
+        2. Décode l'uidb64 depuis base64 pour récupérer l'UUID public utilisateur
         3. Récupère l'utilisateur en base de données
         4. Vérifie que le token est valide et n'a pas expiré
         5. Met à jour le mot de passe de l'utilisateur de manière sécurisée
@@ -461,13 +521,13 @@ class PasswordResetConfirmView(generics.GenericAPIView):
         
         Security:
             - Token signé cryptographiquement avec clé secrète Django
-            - Token avec timeout (24h par défaut)
+            - Token avec timeout configuré à 2 heures
             - Mot de passe haché avec PBKDF2 (ou bcrypt si configuré)
             - Utilisateur doit réauthentifier lors de la prochaine connexion
         
         Example:
             >>> response = client.post('/users/password-reset/confirm/', {
-            ...     'uidb64': 'MQ==',
+            ...     'uidb64': 'uuid-public-encode',
             ...     'token': 'abcd1234-efgh5678',
             ...     'password': 'NewSecurePass123!'
             ... })
@@ -485,8 +545,8 @@ class PasswordResetConfirmView(generics.GenericAPIView):
 
         try:
             # 1. Décode l'ID utilisateur depuis base64
-            user_id = force_str(urlsafe_base64_decode(uidb64))
-            user = User.objects.get(id=user_id)
+            user_public_id = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(public_id=user_public_id)
 
             # 2. Vérifie que le token est valide et non expiré
             if not PasswordResetTokenGenerator().check_token(user, token):

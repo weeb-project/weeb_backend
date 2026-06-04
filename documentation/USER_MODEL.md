@@ -37,6 +37,29 @@ USERNAME_FIELD = 'email'
 REQUIRED_FIELDS = []
 ```
 
+Les emails sont normalisés en minuscules à la création et à la validation des
+formulaires API. Une contrainte de base de données empêche aussi les doublons
+insensibles à la casse :
+
+```python
+models.UniqueConstraint(
+    Lower('email'),
+    name='unique_customuser_email_ci',
+)
+```
+
+Ainsi, `user@example.com` et `USER@example.com` sont considérés comme le même
+email.
+
+Le modèle expose aussi un identifiant public non prédictible :
+
+```python
+public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+```
+
+L'API renvoie ce UUID dans le champ `id` des réponses utilisateur. La clé primaire
+interne Django reste un entier afin de ne pas casser les relations SQL existantes.
+
 Conséquences :
 
 - les utilisateurs se connectent avec leur email

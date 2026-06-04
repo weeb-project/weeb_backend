@@ -44,8 +44,12 @@ CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 Dans le repo frontend, une variable d'environnement doit pointer vers l'API backend locale :
 
 ```env
-VITE_API_URL=http://127.0.0.1:8000
+VITE_API_URL=http://localhost:8000
 ```
+
+Utiliser le même host logique partout en local. Par exemple, si le frontend appelle
+`localhost:8000`, éviter d'appeler ensuite `127.0.0.1:8000`, car le cookie
+`refresh_token` peut ne pas être renvoyé.
 
 Les routes backend utilisées par le frontend sont :
 
@@ -65,11 +69,42 @@ DELETE /articles/:slug/
 POST /contact/
 ```
 
-Attention : `POST /users/token/refresh/` utilise actuellement la vue standard
-SimpleJWT et attend un champ JSON `refresh`. Or le backend met le refresh token dans
-un cookie HttpOnly au login/register. Pour un refresh automatique côté navigateur,
-il faudra soit envoyer explicitement le refresh token dans le body, soit ajouter une
-vue backend custom qui lit le cookie `refresh_token`.
+`POST /users/register/` crée un compte en attente de validation administrateur.
+Cette route ne connecte pas automatiquement l'utilisateur : elle ne renvoie pas
+d'access token et ne pose pas de cookie `refresh_token`. Après inscription, le
+frontend doit afficher le message de succès et inviter l'utilisateur à attendre
+la validation du compte.
+
+`POST /users/logout/` blackliste le refresh token côté serveur, puis supprime le
+cookie HttpOnly `refresh_token`. Le frontend doit aussi appeler cette route avec
+les credentials/cookies activés, sinon le navigateur peut ignorer le `Set-Cookie`
+qui expire le cookie :
+
+```js
+withCredentials: true
+```
+
+`POST /users/token/refresh/` lit le refresh token depuis le cookie HttpOnly
+`refresh_token`. Le frontend doit appeler cette route avec les credentials/cookies
+activés, sans body obligatoire :
+
+```text
+withCredentials: true
+```
+
+En cas de succès, le backend renvoie :
+
+```json
+{
+  "access": "..."
+}
+```
+
+Le backend pose aussi un nouveau cookie HttpOnly `refresh_token` et blackliste
+l'ancien refresh token. Le nouveau refresh token n'est jamais renvoyé dans le
+JSON.
+
+Si le cookie est absent, invalide, expiré ou blacklisté, la route renvoie `401`.
 
 ## Rôle du frontend
 

@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'users.apps.UsersConfig',
     'blog',
     'contact.apps.ContactConfig'
@@ -153,15 +154,37 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',
+        'login': '5/minute',
+        'register': '5/hour',
+        'token_refresh': '30/minute',
+        'password_reset_request': '5/hour',
+        'password_reset_confirm': '10/hour',
+        'contact': '5/hour',
+    },
 }
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=2),
-    'REFRESH_TOKEN_LIFETIME': timedelta(minutes=3),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'public_id',
+    'USER_ID_CLAIM': 'user_id',
 }
 
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
+REFRESH_TOKEN_COOKIE_SECURE = config(
+    'REFRESH_TOKEN_COOKIE_SECURE',
+    default=not DEBUG,
+    cast=bool
+)
+REFRESH_TOKEN_COOKIE_SAMESITE = config(
+    'REFRESH_TOKEN_COOKIE_SAMESITE',
+    default='Strict'
+)
 
 # Durée de validité des tokens de reset password Django : 2 heures.
 PASSWORD_RESET_TIMEOUT = 60 * 60 * 2
