@@ -69,6 +69,12 @@ DELETE /articles/:slug/
 POST /contact/
 ```
 
+`POST /users/register/` crée un compte en attente de validation administrateur.
+Cette route ne connecte pas automatiquement l'utilisateur : elle ne renvoie pas
+d'access token et ne pose pas de cookie `refresh_token`. Après inscription, le
+frontend doit afficher le message de succès et inviter l'utilisateur à attendre
+la validation du compte.
+
 `POST /users/logout/` supprime le cookie HttpOnly `refresh_token`. Le frontend
 doit aussi appeler cette route avec les credentials/cookies activés, sinon le
 navigateur peut ignorer le `Set-Cookie` qui expire le cookie :

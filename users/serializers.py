@@ -106,6 +106,16 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if attrs.get(email_field):
             attrs[email_field] = normalize_email(attrs[email_field])
 
+        email = attrs.get(email_field)
+        password = attrs.get('password')
+        user = User.objects.filter(email__iexact=email).first()
+
+        if user and not user.is_active and user.check_password(password):
+            raise AuthenticationFailed({
+                "error_code": "ACCOUNT_PENDING_APPROVAL",
+                "message": "Votre compte est en attente de validation par un administrateur"
+            })
+
         try:
             return super().validate(attrs)
         except AuthenticationFailed:
@@ -280,6 +290,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             'newuser@example.com'
         """
         validated_data.pop('password_confirm')
+        validated_data['is_active'] = False
 
         return User.objects.create_user(**validated_data)
 
