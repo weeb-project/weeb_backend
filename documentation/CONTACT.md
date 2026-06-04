@@ -10,6 +10,8 @@ Endpoint public permettant aux visiteurs de soumettre un formulaire de contact. 
 
 **Authentification** : Non requise (public)
 
+**Rate limiting** : `5/hour` via le scope DRF `contact`
+
 ## Champs acceptés
 
 | Champ | Type | Requis | Constraints |
@@ -61,3 +63,14 @@ Champ manquant ou invalide :
 Exemples :
 - Email invalide : `"email": ["L'adresse email n'est pas valide."]`
 - Champ manquant : `"message": ["Le message est obligatoire."]`
+
+## Réponse - Rate limit (429)
+
+Si trop de messages sont envoyés depuis la même source dans la fenêtre configurée,
+DRF bloque temporairement les nouvelles requêtes :
+
+```http
+429 Too Many Requests
+```
+
+Cette limite sert à réduire le spam sur le formulaire de contact public.

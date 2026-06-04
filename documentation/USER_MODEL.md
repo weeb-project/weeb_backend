@@ -37,6 +37,20 @@ USERNAME_FIELD = 'email'
 REQUIRED_FIELDS = []
 ```
 
+Les emails sont normalisés en minuscules à la création et à la validation des
+formulaires API. Une contrainte de base de données empêche aussi les doublons
+insensibles à la casse :
+
+```python
+models.UniqueConstraint(
+    Lower('email'),
+    name='unique_customuser_email_ci',
+)
+```
+
+Ainsi, `user@example.com` et `USER@example.com` sont considérés comme le même
+email.
+
 Le modèle expose aussi un identifiant public non prédictible :
 
 ```python
@@ -49,7 +63,7 @@ interne Django reste un entier afin de ne pas casser les relations SQL existante
 Conséquences :
 
 - les utilisateurs se connectent avec leur email
-- l'email est obligatoire et unique
+- l'email est obligatoire et unique, y compris si seule la casse change
 - la commande `createsuperuser` demande l'email au lieu d'un username
 - le modèle reste compatible avec les champs standards de Django comme `first_name`, `last_name`, `is_active`, `is_staff`, `is_superuser` et `date_joined`
 
@@ -62,7 +76,7 @@ Le projet définit donc `CustomUserManager`, basé sur `BaseUserManager`, avec d
 - `create_user(email, password, **extra_fields)` : crée un utilisateur standard
 - `create_superuser(email, password, **extra_fields)` : crée un administrateur avec `is_staff=True`, `is_superuser=True` et `is_active=True`
 
-Le manager normalise l'email avec `normalize_email()`, vérifie que l'email et le mot de passe sont fournis, puis hache le mot de passe avec `set_password()`.
+Le manager normalise l'email avec `normalize_email().lower()`, vérifie que l'email et le mot de passe sont fournis, puis hache le mot de passe avec `set_password()`.
 
 Le modèle lie ce manager avec :
 

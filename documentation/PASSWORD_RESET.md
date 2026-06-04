@@ -36,6 +36,30 @@ Le contenu envoyé contient :
 
 En cas d'échec SMTP, l'erreur est loggée côté serveur, mais la réponse API reste générique pour ne pas révéler si l'email existe.
 
+## Rate limiting
+
+Les endpoints de reset password sont publics, mais protégés par les throttles DRF :
+
+```text
+POST /users/password-reset/request/  -> 5/hour
+POST /users/password-reset/confirm/  -> 10/hour
+```
+
+Scopes utilisés dans `users/views.py` :
+
+```python
+throttle_scope = "password_reset_request"
+throttle_scope = "password_reset_confirm"
+```
+
+Quand la limite est dépassée, l'API renvoie :
+
+```http
+429 Too Many Requests
+```
+
+Cette protection limite le spam d'emails de réinitialisation et les tentatives répétées sur les tokens de reset.
+
 ## Configuration email
 
 La configuration d'envoi est dans `weeb_backend/settings.py` via les variables :

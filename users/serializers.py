@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.db import IntegrityError
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed, ValidationError
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -79,6 +80,19 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'email', 'first_name', 'last_name', 'is_staff', 'is_active']
         read_only_fields = ['id', 'email', 'first_name', 'last_name', 'is_staff', 'is_active']
+
+
+class PublicAuthorSerializer(serializers.ModelSerializer):
+    """
+    Serializer public minimal pour afficher l'auteur d'un contenu exposé publiquement.
+    """
+    id = serializers.UUIDField(source='public_id', read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'first_name', 'last_name']
+        read_only_fields = ['id', 'first_name', 'last_name']
+
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
@@ -292,7 +306,13 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         validated_data.pop('password_confirm')
         validated_data['is_active'] = False
 
-        return User.objects.create_user(**validated_data)
+        try:
+            return User.objects.create_user(**validated_data)
+        except IntegrityError:
+            raise ValidationError({
+                "error_code": "EMAIL_ALREADY_EXISTS",
+                "message": "Cet email existe déjà"
+            })
 
 class PasswordResetRequestSerializer(serializers.Serializer):
     """

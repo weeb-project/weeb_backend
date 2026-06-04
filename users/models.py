@@ -3,6 +3,7 @@ import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.base_user import BaseUserManager
+from django.db.models.functions import Lower
 from django.utils.translation import gettext_lazy as _
 
 # --- 1. LE MANAGER ---
@@ -52,7 +53,7 @@ class CustomUserManager(BaseUserManager):
             raise ValueError(_("L'adresse email doit être renseignée."))
         if not password:
             raise ValueError(_("Le mot de passe doit être renseigné."))
-        email = self.normalize_email(email)
+        email = self.normalize_email(email).lower()
         user = self.model(email=email, **extra_fields)
         user.set_password(password) # Hache le mot de passe de façon sécurisée
         user.save()
@@ -136,6 +137,16 @@ class CustomUser(AbstractUser):
 
     # On lie notre modèle à notre nouveau gestionnaire
     objects = CustomUserManager()
+
+    class Meta:
+        verbose_name = _('user')
+        verbose_name_plural = _('users')
+        constraints = [
+            models.UniqueConstraint(
+                Lower('email'),
+                name='unique_customuser_email_ci',
+            ),
+        ]
 
     def __str__(self):
         """
