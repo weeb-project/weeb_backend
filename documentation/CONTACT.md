@@ -17,7 +17,7 @@ Endpoint public permettant aux visiteurs de soumettre un formulaire de contact. 
 | `first_name` | string | ✅ | max 255 caractères |
 | `last_name` | string | ✅ | max 255 caractères |
 | `email` | email | ✅ | format email valide |
-| `phone` | string | ✅ | max 20 caractères |
+| `subject` | string | ✅ | max 255 caractères |
 | `message` | text | ✅ | non vide |
 
 ## Exemple de requête
@@ -29,7 +29,7 @@ curl -X POST http://localhost:8000/contact/ \
     "first_name": "John",
     "last_name": "Doe",
     "email": "john@example.com",
-    "phone": "+33612345678",
+    "subject": "Demande d'informations",
     "message": "Bonjour, j'\''aimerais avoir plus d'\''informations sur vos services."
   }'
 ```
@@ -42,7 +42,7 @@ curl -X POST http://localhost:8000/contact/ \
   "first_name": "John",
   "last_name": "Doe",
   "email": "john@example.com",
-  "phone": "+33612345678",
+  "subject": "Demande d'informations",
   "message": "Bonjour, j'aimerais avoir plus d'informations sur vos services.",
   "created_at": "2026-06-01T14:30:00Z"
 }
@@ -61,4 +61,3 @@ Champ manquant ou invalide :
 Exemples :
 - Email invalide : `"email": ["L'adresse email n'est pas valide."]`
 - Champ manquant : `"message": ["Le message est obligatoire."]`
-
