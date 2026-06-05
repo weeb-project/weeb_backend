@@ -8,15 +8,21 @@ from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from rest_framework import generics, status
 from rest_framework.exceptions import AuthenticationFailed
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle, ScopedRateThrottle
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .serializers import CustomTokenObtainPairSerializer, UserRegisterSerializer, UserSerializer, \
-    PasswordResetRequestSerializer, PasswordResetConfirmSerializer
+from .serializers import (
+    AdminUserSerializer,
+    CustomTokenObtainPairSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
+    UserRegisterSerializer,
+    UserSerializer,
+)
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -25,6 +31,7 @@ REFRESH_TOKEN_COOKIE_MAX_AGE = 7 * 24 * 60 * 60
 
 
 def set_refresh_token_cookie(response, refresh_token):
+    """Ajoute le refresh token dans un cookie HttpOnly."""
     response.set_cookie(
         key=REFRESH_TOKEN_COOKIE_NAME,
         value=refresh_token,
@@ -37,6 +44,7 @@ def set_refresh_token_cookie(response, refresh_token):
 
 
 def delete_refresh_token_cookie(response):
+    """Supprime le cookie de refresh token."""
     response.delete_cookie(
         key=REFRESH_TOKEN_COOKIE_NAME,
         path="/",
@@ -45,6 +53,7 @@ def delete_refresh_token_cookie(response):
 
 
 def blacklist_refresh_token(refresh_token):
+    """Révoque un refresh token sans faire échouer le logout."""
     try:
         RefreshToken(refresh_token).blacklist()
     except TokenError:
@@ -255,6 +264,38 @@ class RegisterView(generics.CreateAPIView):
         return response
 
 
+class CurrentUserView(generics.RetrieveAPIView):
+    """
+    Vue protégée qui renvoie les informations de l'utilisateur connecté.
+    """
+    serializer_class = UserSerializer
+
+    def get_object(self):
+        """Retourne l'utilisateur associé à la requête courante."""
+        return self.request.user
+
+
+class AdminUserListView(generics.ListAPIView):
+    """
+    Vue réservée aux admins pour lister les utilisateurs.
+    """
+    serializer_class = AdminUserSerializer
+    permission_classes = [IsAdminUser]
+    queryset = User.objects.order_by('-date_joined')
+
+
+class AdminUserDetailView(generics.RetrieveUpdateAPIView):
+    """
+    Vue réservée aux admins pour consulter ou mettre à jour un utilisateur.
+    """
+    serializer_class = AdminUserSerializer
+    permission_classes = [IsAdminUser]
+    queryset = User.objects.all()
+    lookup_field = 'public_id'
+    lookup_url_kwarg = 'user_id'
+    http_method_names = ['get', 'patch', 'head', 'options']
+
+
 class LogoutView(generics.GenericAPIView):
     """
     Vue pour déconnecter l'utilisateur côté backend.
@@ -266,6 +307,7 @@ class LogoutView(generics.GenericAPIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        """Déconnecte l'utilisateur et supprime le cookie de session."""
         refresh_token = request.COOKIES.get(REFRESH_TOKEN_COOKIE_NAME)
         if refresh_token:
             blacklist_refresh_token(refresh_token)
@@ -291,6 +333,7 @@ class CookieTokenRefreshView(generics.GenericAPIView):
     throttle_scope = "token_refresh"
 
     def post(self, request):
+        """Crée un nouvel access token depuis le refresh token en cookie."""
         refresh_token = request.COOKIES.get(REFRESH_TOKEN_COOKIE_NAME)
 
         if not refresh_token:

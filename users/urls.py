@@ -1,9 +1,19 @@
 from django.urls import path
 
-from users.views import CookieTokenRefreshView, CustomTokenObtainPairView, LogoutView, RegisterView, \
-    PasswordResetConfirmView, RequestPasswordResetEmailView
+from users.views import (
+    CookieTokenRefreshView,
+    CurrentUserView,
+    CustomTokenObtainPairView,
+    LogoutView,
+    PasswordResetConfirmView,
+    RegisterView,
+    RequestPasswordResetEmailView,
+)
 
 urlpatterns = [
+    # Current user
+    path('', CurrentUserView.as_view(), name='current_user'),
+
     # Sign Up
     path('register/', RegisterView.as_view(), name='register'),
 

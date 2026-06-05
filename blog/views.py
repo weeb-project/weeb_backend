@@ -7,22 +7,25 @@ class IsActiveAuthenticated(permissions.BasePermission):
     Autorise seulement un utilisateur authentifié et actif.
     """
     def has_permission(self, request, view):
+        """Vérifie que l'utilisateur courant peut écrire."""
         return bool(request.user and request.user.is_authenticated and request.user.is_active)
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
     """
     Permission personnalisée : lecture pour tous,
-    modification/suppression seulement pour le propriétaire actif.
+    modification/suppression pour le propriétaire actif ou un admin actif.
     """
     def has_permission(self, request, view):
+        """Autorise la lecture publique et protège les écritures."""
         if request.method in permissions.SAFE_METHODS:
             return True
         return bool(request.user and request.user.is_authenticated and request.user.is_active)
 
     def has_object_permission(self, request, view, obj):
+        """Autorise l'écriture au propriétaire ou à un admin."""
         if request.method in permissions.SAFE_METHODS:
             return True
-        return obj.author == request.user
+        return obj.author == request.user or request.user.is_staff
 
 class ArticleListCreateView(generics.ListCreateAPIView):
     """
@@ -33,6 +36,7 @@ class ArticleListCreateView(generics.ListCreateAPIView):
     serializer_class = ArticleSerializer
 
     def get_permissions(self):
+        """Rend la création privée, mais garde la liste publique."""
         if self.request.method == 'POST':
             return [IsActiveAuthenticated()]
         return [permissions.AllowAny()]

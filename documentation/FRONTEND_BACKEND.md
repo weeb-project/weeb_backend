@@ -54,6 +54,10 @@ Utiliser le même host logique partout en local. Par exemple, si le frontend app
 Les routes backend utilisées par le frontend sont :
 
 ```text
+GET /users/
+GET /api/admin/users/
+GET /api/admin/users/:id/
+PATCH /api/admin/users/:id/
 POST /users/register/
 POST /users/login/
 POST /users/logout/
@@ -69,11 +73,41 @@ DELETE /articles/:slug/
 POST /contact/
 ```
 
+`GET /users/` renvoie l'utilisateur connecté. Cette route est protégée et doit
+être appelée avec l'access token :
+
+```text
+Authorization: Bearer <access_token>
+```
+
+Les routes d'administration utilisateur sont réservées aux comptes avec
+`is_staff=true`. Elles permettent au frontend admin de lister les comptes,
+consulter un utilisateur et modifier ses champs administrables :
+
+```text
+GET /api/admin/users/
+GET /api/admin/users/:id/
+PATCH /api/admin/users/:id/
+```
+
+Exemple pour valider un compte en attente :
+
+```json
+{
+  "is_active": true
+}
+```
+
 `POST /users/register/` crée un compte en attente de validation administrateur.
 Cette route ne connecte pas automatiquement l'utilisateur : elle ne renvoie pas
 d'access token et ne pose pas de cookie `refresh_token`. Après inscription, le
 frontend doit afficher le message de succès et inviter l'utilisateur à attendre
 la validation du compte.
+
+Pour les articles, un utilisateur actif peut modifier ou supprimer ses propres
+publications. Un admin actif (`is_staff=true`) peut aussi modifier ou supprimer
+une publication dont il n'est pas l'auteur via `PUT /articles/:slug/`,
+`PATCH /articles/:slug/` ou `DELETE /articles/:slug/`.
 
 `POST /users/logout/` blackliste le refresh token côté serveur, puis supprime le
 cookie HttpOnly `refresh_token`. Le frontend doit aussi appeler cette route avec
