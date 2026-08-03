@@ -3,6 +3,8 @@ import logging
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.core import signing
+from django.core.signing import BadSignature, SignatureExpired
 from django.core.mail import send_mail
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -20,8 +22,11 @@ from blog.serializers import ArticleSerializer
 from .serializers import (
     AdminUserSerializer,
     CustomTokenObtainPairSerializer,
+    CurrentUserUpdateSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
+    TwoFactorCodeSerializer,
+    TwoFactorLoginVerifySerializer,
     UserRegisterSerializer,
     UserSerializer,
 )
@@ -30,6 +35,9 @@ User = get_user_model()
 logger = logging.getLogger(__name__)
 REFRESH_TOKEN_COOKIE_NAME = "refresh_token"
 REFRESH_TOKEN_COOKIE_MAX_AGE = 7 * 24 * 60 * 60
+TWO_FACTOR_LOGIN_SALT = "users.two-factor-login"
+TWO_FACTOR_LOGIN_TOKEN_MAX_AGE = 5 * 60
+TWO_FACTOR_ISSUER_NAME = "Weeb"
 
 
 def set_refresh_token_cookie(response, refresh_token):
@@ -62,6 +70,63 @@ def blacklist_refresh_token(refresh_token):
         # Le logout reste idempotent : un token invalide, expiré ou déjà
         # blacklisté est quand même supprimé du navigateur.
         pass
+
+
+def create_two_factor_login_token(user):
+    """Crée un token temporaire signé pour terminer une connexion 2FA."""
+    return signing.dumps(
+        {"user_id": str(user.public_id)},
+        salt=TWO_FACTOR_LOGIN_SALT,
+    )
+
+
+def get_user_from_two_factor_login_token(token):
+    """Retourne l'utilisateur associé à un token temporaire 2FA."""
+    try:
+        data = signing.loads(
+            token,
+            salt=TWO_FACTOR_LOGIN_SALT,
+            max_age=TWO_FACTOR_LOGIN_TOKEN_MAX_AGE,
+        )
+    except SignatureExpired:
+        raise AuthenticationFailed({
+            "error_code": "TWO_FACTOR_TOKEN_EXPIRED",
+            "message": "Le token 2FA a expiré"
+        })
+    except BadSignature:
+        raise AuthenticationFailed({
+            "error_code": "INVALID_TWO_FACTOR_TOKEN",
+            "message": "Token 2FA invalide"
+        })
+
+    try:
+        return User.objects.get(public_id=data["user_id"], is_active=True)
+    except (KeyError, User.DoesNotExist):
+        raise AuthenticationFailed({
+            "error_code": "INVALID_TWO_FACTOR_TOKEN",
+            "message": "Token 2FA invalide"
+        })
+
+
+def is_valid_totp_code(user, code):
+    """Valide un code TOTP pour l'utilisateur donné."""
+    import pyotp
+
+    if not user.totp_secret:
+        return False
+    return pyotp.TOTP(user.totp_secret).verify(code, valid_window=1)
+
+
+def build_authenticated_response(user, message="Connexion réussie", response_status=status.HTTP_200_OK):
+    """Construit la réponse de connexion JWT et pose le cookie refresh_token."""
+    refresh_token = CustomTokenObtainPairSerializer.get_token(user)
+    response = Response({
+        "message": message,
+        "access": str(refresh_token.access_token),
+        "user": UserSerializer(user).data,
+    }, status=response_status)
+    set_refresh_token_cookie(response, str(refresh_token))
+    return response
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -154,17 +219,16 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        refresh_token = serializer.validated_data.get("refresh")
-        access_token = serializer.validated_data.get("access")
+        user = serializer.user
+        if user.is_two_factor_enabled:
+            return Response({
+                "message": "Code 2FA requis",
+                "requires_2fa": True,
+                "two_factor_token": create_two_factor_login_token(user),
+                "user": UserSerializer(user).data,
+            }, status=status.HTTP_200_OK)
 
-        response = Response({
-            "message": "Connexion réussie",
-            "access": access_token,
-            "user": UserSerializer(serializer.user).data
-        }, status=status.HTTP_200_OK)
-        set_refresh_token_cookie(response, refresh_token)
-
-        return response
+        return build_authenticated_response(user)
 
 
 class RegisterView(generics.CreateAPIView):
@@ -266,15 +330,29 @@ class RegisterView(generics.CreateAPIView):
         return response
 
 
-class CurrentUserView(generics.RetrieveAPIView):
+class CurrentUserView(generics.RetrieveUpdateAPIView):
     """
-    Vue protégée qui renvoie les informations de l'utilisateur connecté.
+    Vue protégée qui renvoie ou modifie le profil de l'utilisateur connecté.
     """
-    serializer_class = UserSerializer
+    serializer_class = CurrentUserUpdateSerializer
+    http_method_names = ['get', 'patch', 'head', 'options']
 
     def get_object(self):
         """Retourne l'utilisateur associé à la requête courante."""
         return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        """Met à jour le profil courant et renvoie les données publiques."""
+        partial = kwargs.pop('partial', False)
+        user = self.get_object()
+        serializer = self.get_serializer(user, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        return Response({
+            "message": "Profil mis à jour avec succès",
+            "user": UserSerializer(user).data,
+        }, status=status.HTTP_200_OK)
 
 
 class CurrentUserArticleListView(generics.ListAPIView):
@@ -297,6 +375,140 @@ class CurrentUserFavoriteArticleListView(generics.ListAPIView):
     def get_queryset(self):
         """Retourne les articles favoris de l'utilisateur courant."""
         return Article.objects.filter(favorites__user=self.request.user)
+
+
+class TwoFactorSetupView(generics.GenericAPIView):
+    """
+    Vue protégée qui prépare l'activation TOTP de l'utilisateur connecté.
+    """
+
+    def post(self, request):
+        """Génère un secret TOTP et renvoie l'URI otpauth à convertir en QR code."""
+        import pyotp
+
+        user = request.user
+        if user.is_two_factor_enabled:
+            return Response({
+                "error_code": "TWO_FACTOR_ALREADY_ENABLED",
+                "message": "La double authentification est déjà activée"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        user.totp_secret = pyotp.random_base32()
+        user.save(update_fields=["totp_secret"])
+
+        provisioning_uri = pyotp.TOTP(user.totp_secret).provisioning_uri(
+            name=user.email,
+            issuer_name=TWO_FACTOR_ISSUER_NAME,
+        )
+
+        return Response({
+            "message": "Configuration 2FA initialisée",
+            "secret": user.totp_secret,
+            "provisioning_uri": provisioning_uri,
+        }, status=status.HTTP_200_OK)
+
+
+class TwoFactorConfirmView(generics.GenericAPIView):
+    """
+    Vue protégée qui confirme et active TOTP pour l'utilisateur connecté.
+    """
+    serializer_class = TwoFactorCodeSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "two_factor_verify"
+
+    def post(self, request):
+        """Active la 2FA si le code TOTP fourni est valide."""
+        user = request.user
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if not user.totp_secret:
+            return Response({
+                "error_code": "TWO_FACTOR_SETUP_REQUIRED",
+                "message": "Vous devez d'abord initialiser la configuration 2FA"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if not is_valid_totp_code(user, serializer.validated_data["code"]):
+            return Response({
+                "error_code": "INVALID_TWO_FACTOR_CODE",
+                "message": "Code 2FA invalide"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        user.is_two_factor_enabled = True
+        user.save(update_fields=["is_two_factor_enabled"])
+
+        return Response({
+            "message": "Double authentification activée",
+            "user": UserSerializer(user).data,
+        }, status=status.HTTP_200_OK)
+
+
+class TwoFactorDisableView(generics.GenericAPIView):
+    """
+    Vue protégée qui désactive TOTP pour l'utilisateur connecté.
+    """
+    serializer_class = TwoFactorCodeSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "two_factor_verify"
+
+    def post(self, request):
+        """Désactive la 2FA si le code TOTP fourni est valide."""
+        user = request.user
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if not user.is_two_factor_enabled:
+            return Response({
+                "error_code": "TWO_FACTOR_NOT_ENABLED",
+                "message": "La double authentification n'est pas activée"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if not is_valid_totp_code(user, serializer.validated_data["code"]):
+            return Response({
+                "error_code": "INVALID_TWO_FACTOR_CODE",
+                "message": "Code 2FA invalide"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        user.totp_secret = ""
+        user.is_two_factor_enabled = False
+        user.save(update_fields=["totp_secret", "is_two_factor_enabled"])
+
+        return Response({
+            "message": "Double authentification désactivée",
+            "user": UserSerializer(user).data,
+        }, status=status.HTTP_200_OK)
+
+
+class TwoFactorLoginVerifyView(generics.GenericAPIView):
+    """
+    Vue publique qui termine la connexion après validation du code TOTP.
+    """
+    serializer_class = TwoFactorLoginVerifySerializer
+    permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle, ScopedRateThrottle]
+    throttle_scope = "two_factor_verify"
+
+    def post(self, request):
+        """Valide le token temporaire et le code TOTP, puis renvoie les tokens JWT."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = get_user_from_two_factor_login_token(
+            serializer.validated_data["two_factor_token"]
+        )
+        if not user.is_two_factor_enabled:
+            raise AuthenticationFailed({
+                "error_code": "TWO_FACTOR_NOT_ENABLED",
+                "message": "La double authentification n'est pas activée"
+            })
+
+        if not is_valid_totp_code(user, serializer.validated_data["code"]):
+            return Response({
+                "error_code": "INVALID_TWO_FACTOR_CODE",
+                "message": "Code 2FA invalide"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        return build_authenticated_response(user)
 
 
 class AdminUserListView(generics.ListAPIView):

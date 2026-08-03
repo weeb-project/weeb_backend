@@ -4,12 +4,17 @@
 
 ```text
 GET    /users/
+PATCH  /users/
 GET    /users/me/articles/
 GET    /users/me/favorites/
 POST   /users/register/
 POST   /users/login/
 POST   /users/logout/
 POST   /users/token/refresh/
+POST   /users/2fa/setup/
+POST   /users/2fa/confirm/
+POST   /users/2fa/disable/
+POST   /users/2fa/verify-login/
 POST   /users/password-reset/request/
 POST   /users/password-reset/confirm/
 ```

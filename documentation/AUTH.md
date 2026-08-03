@@ -240,6 +240,46 @@ GET /users/
 Authorization: Bearer <access_token>
 ```
 
+Le profil de l'utilisateur connecté se modifie sur la même route :
+
+```text
+PATCH /users/
+Authorization: Bearer <access_token>
+```
+
+Changement de nom/prénom :
+
+```json
+{
+  "first_name": "John",
+  "last_name": "Doe"
+}
+```
+
+Changement d'email :
+
+```json
+{
+  "email": "new-email@example.com",
+  "current_password": "MotDePasseActuel123!"
+}
+```
+
+Changement de mot de passe :
+
+```json
+{
+  "current_password": "MotDePasseActuel123!",
+  "password": "NouveauMotDePasse123!",
+  "password_confirm": "NouveauMotDePasse123!"
+}
+```
+
+L'email est normalisé en minuscules et vérifié de manière insensible à la casse.
+Le mot de passe actuel est obligatoire pour changer l'email ou le mot de passe.
+Le nouveau mot de passe applique les mêmes règles que l'inscription et le reset
+password.
+
 Les routes d'administration utilisateur sont protégées par `IsAdminUser`.
 Elles demandent donc un utilisateur connecté avec `is_staff=true` :
 
