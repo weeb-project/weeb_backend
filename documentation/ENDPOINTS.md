@@ -11,6 +11,7 @@ POST   /users/register/
 POST   /users/login/
 POST   /users/logout/
 POST   /users/token/refresh/
+POST   /users/email-change/confirm/
 POST   /users/2fa/setup/
 POST   /users/2fa/confirm/
 POST   /users/2fa/disable/

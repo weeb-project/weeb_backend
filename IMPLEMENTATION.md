@@ -22,6 +22,7 @@ Le backend utilise :
 - un modèle `CustomUser` basé sur l'email, avec UUID public et unicité email insensible à la casse
 - une politique de mots de passe renforcée
 - un reset password par email avec token Django
+- des notifications email de sécurité lors d'un changement d'email ou de mot de passe
 - des articles lisibles publiquement et modifiables par leur auteur ou par un admin actif
 - un auteur public minimal sur les articles pour éviter d'exposer l'email
 - un formulaire de contact public

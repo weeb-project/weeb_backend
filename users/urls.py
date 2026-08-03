@@ -6,6 +6,7 @@ from users.views import (
     CurrentUserFavoriteArticleListView,
     CurrentUserView,
     CustomTokenObtainPairView,
+    EmailChangeConfirmView,
     LogoutView,
     PasswordResetConfirmView,
     RegisterView,
@@ -21,6 +22,7 @@ urlpatterns = [
     path('', CurrentUserView.as_view(), name='current_user'),
     path('me/articles/', CurrentUserArticleListView.as_view(), name='current_user_articles'),
     path('me/favorites/', CurrentUserFavoriteArticleListView.as_view(), name='current_user_favorite_articles'),
+    path('email-change/confirm/', EmailChangeConfirmView.as_view(), name='email_change_confirm'),
 
     # Sign Up
     path('register/', RegisterView.as_view(), name='register'),

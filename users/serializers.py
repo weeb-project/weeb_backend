@@ -169,7 +169,7 @@ class CurrentUserUpdateSerializer(serializers.ModelSerializer):
 
             validate_password_strength(password, user=user)
 
-        if email_changed or password:
+        if password:
             if not current_password:
                 raise ValidationError({
                     "error_code": "CURRENT_PASSWORD_REQUIRED",
@@ -186,6 +186,7 @@ class CurrentUserUpdateSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         """Met à jour le profil et hache le nouveau mot de passe si fourni."""
+        validated_data.pop('email', None)
         validated_data.pop('current_password', None)
         password = validated_data.pop('password', None)
         validated_data.pop('password_confirm', None)
@@ -209,6 +210,14 @@ class CurrentUserUpdateSerializer(serializers.ModelSerializer):
                 })
 
         return instance
+
+
+class EmailChangeConfirmSerializer(serializers.Serializer):
+    """
+    Serializer de confirmation du changement d'email.
+    """
+    token = serializers.CharField(required=True)
+    current_password = serializers.CharField(write_only=True, required=True)
 
 
 class AdminUserSerializer(serializers.ModelSerializer):
