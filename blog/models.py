@@ -16,3 +16,20 @@ class Article(models.Model):
 	def __str__(self):
 		"""Retourne le titre affiché dans l'admin."""
 		return self.title
+
+
+class ArticleFavorite(models.Model):
+	"""Favori posé par un utilisateur sur un article."""
+	user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='article_favorites')
+	article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name='favorites')
+	created_at = models.DateTimeField(auto_now_add=True)
+
+	class Meta:
+		ordering = ['-created_at']
+		constraints = [
+			models.UniqueConstraint(fields=['user', 'article'], name='unique_article_favorite'),
+		]
+
+	def __str__(self):
+		"""Retourne une représentation lisible du favori."""
+		return f'{self.user} -> {self.article}'

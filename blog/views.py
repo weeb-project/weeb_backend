@@ -1,5 +1,7 @@
-from rest_framework import permissions, generics
-from .models import Article
+from rest_framework import permissions, generics, status
+from rest_framework.response import Response
+
+from .models import Article, ArticleFavorite
 from .serializers import ArticleSerializer
 
 class IsActiveAuthenticated(permissions.BasePermission):
@@ -51,3 +53,45 @@ class ArticleDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ArticleSerializer
     permission_classes = [IsOwnerOrReadOnly]
     lookup_field = 'slug'
+
+
+class ArticleFavoriteView(generics.GenericAPIView):
+    """
+    POST: ajouter un article aux favoris
+    DELETE: retirer un article des favoris
+    """
+    queryset = Article.objects.all()
+    permission_classes = [IsActiveAuthenticated]
+    lookup_field = 'slug'
+
+    def post(self, request, *args, **kwargs):
+        """Ajoute l'article aux favoris de l'utilisateur connecté."""
+        article = self.get_object()
+        _, created = ArticleFavorite.objects.get_or_create(
+            article=article,
+            user=request.user,
+        )
+        status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+
+        return Response(
+            {
+                'message': 'Article ajouté aux favoris',
+                'is_favorite': True,
+                'favorites_count': article.favorites.count(),
+            },
+            status=status_code,
+        )
+
+    def delete(self, request, *args, **kwargs):
+        """Retire l'article des favoris de l'utilisateur connecté."""
+        article = self.get_object()
+        ArticleFavorite.objects.filter(article=article, user=request.user).delete()
+
+        return Response(
+            {
+                'message': 'Article retiré des favoris',
+                'is_favorite': False,
+                'favorites_count': article.favorites.count(),
+            },
+            status=status.HTTP_200_OK,
+        )
