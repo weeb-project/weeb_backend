@@ -2,6 +2,8 @@ from django.urls import path
 
 from users.views import (
     CookieTokenRefreshView,
+    CurrentUserArticleListView,
+    CurrentUserFavoriteArticleListView,
     CurrentUserView,
     CustomTokenObtainPairView,
     LogoutView,
@@ -13,6 +15,8 @@ from users.views import (
 urlpatterns = [
     # Current user
     path('', CurrentUserView.as_view(), name='current_user'),
+    path('me/articles/', CurrentUserArticleListView.as_view(), name='current_user_articles'),
+    path('me/favorites/', CurrentUserFavoriteArticleListView.as_view(), name='current_user_favorite_articles'),
 
     # Sign Up
     path('register/', RegisterView.as_view(), name='register'),

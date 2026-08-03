@@ -7,10 +7,14 @@ Routes disponibles :
 ```text
 GET /articles/
 POST /articles/
+POST /articles/:slug/favorite/
+DELETE /articles/:slug/favorite/
 GET /articles/:slug/
 PUT /articles/:slug/
 PATCH /articles/:slug/
 DELETE /articles/:slug/
+GET /users/me/articles/
+GET /users/me/favorites/
 ```
 
 ## Lecture
@@ -37,6 +41,8 @@ Les réponses publiques exposent l'auteur avec un format minimal :
   "title": "Mon article",
   "content": "Contenu de l'article",
   "slug": "mon-article",
+  "favorites_count": 3,
+  "is_favorite": false,
   "created_at": "2026-06-04T10:00:00Z",
   "updated_at": "2026-06-04T10:00:00Z"
 }
@@ -78,3 +84,49 @@ mon-article-3
 ```
 
 Le détail d'un article utilise le slug comme identifiant public.
+
+## Favoris
+
+Les utilisateurs connectés et actifs peuvent ajouter ou retirer un article de
+leurs favoris :
+
+```text
+POST /articles/:slug/favorite/
+DELETE /articles/:slug/favorite/
+Authorization: Bearer <access_token>
+```
+
+La réponse renvoie l'état à afficher côté frontend :
+
+```json
+{
+  "message": "Article ajouté aux favoris",
+  "is_favorite": true,
+  "favorites_count": 4
+}
+```
+
+Les réponses article exposent aussi :
+
+```text
+favorites_count
+is_favorite
+```
+
+Pour un visiteur non connecté, `is_favorite` vaut toujours `false`.
+
+## Articles du profil
+
+Le profil utilisateur peut lister les articles publiés par l'utilisateur connecté :
+
+```text
+GET /users/me/articles/
+Authorization: Bearer <access_token>
+```
+
+Le profil peut aussi lister les articles favoris de l'utilisateur connecté :
+
+```text
+GET /users/me/favorites/
+Authorization: Bearer <access_token>
+```

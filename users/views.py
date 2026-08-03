@@ -15,6 +15,8 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
+from blog.models import Article
+from blog.serializers import ArticleSerializer
 from .serializers import (
     AdminUserSerializer,
     CustomTokenObtainPairSerializer,
@@ -273,6 +275,28 @@ class CurrentUserView(generics.RetrieveAPIView):
     def get_object(self):
         """Retourne l'utilisateur associé à la requête courante."""
         return self.request.user
+
+
+class CurrentUserArticleListView(generics.ListAPIView):
+    """
+    Vue protégée qui liste les articles de l'utilisateur connecté.
+    """
+    serializer_class = ArticleSerializer
+
+    def get_queryset(self):
+        """Retourne les articles publiés par l'utilisateur courant."""
+        return Article.objects.filter(author=self.request.user)
+
+
+class CurrentUserFavoriteArticleListView(generics.ListAPIView):
+    """
+    Vue protégée qui liste les articles favoris de l'utilisateur connecté.
+    """
+    serializer_class = ArticleSerializer
+
+    def get_queryset(self):
+        """Retourne les articles favoris de l'utilisateur courant."""
+        return Article.objects.filter(favorites__user=self.request.user)
 
 
 class AdminUserListView(generics.ListAPIView):
