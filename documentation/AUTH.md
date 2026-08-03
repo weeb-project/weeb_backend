@@ -19,6 +19,8 @@ REST_FRAMEWORK = {
         'token_refresh': '30/minute',
         'password_reset_request': '5/hour',
         'password_reset_confirm': '10/hour',
+        'email_change_confirm': '10/hour',
+        'two_factor_verify': '10/minute',
         'contact': '5/hour',
     },
 }
@@ -260,7 +262,39 @@ Changement d'email :
 
 ```json
 {
-  "email": "new-email@example.com",
+  "email": "new-email@example.com"
+}
+```
+
+Cette requête ne modifie pas immédiatement `user.email`. Elle envoie un email de
+confirmation à l'adresse email actuelle du compte. Cet email contient :
+
+- un lien de confirmation vers le frontend
+- un lien de reset password si l'utilisateur n'est pas à l'origine de la demande
+
+Réponse :
+
+```json
+{
+  "message": "Demande de changement d'email envoyée. Vérifiez votre adresse email actuelle pour confirmer.",
+  "email_change_requested": true,
+  "pending_email": "new-email@example.com",
+  "user": {
+    "email": "current-email@example.com"
+  }
+}
+```
+
+Après clic sur le lien reçu, le frontend doit afficher un champ `current_password`
+et appeler :
+
+```text
+POST /users/email-change/confirm/
+```
+
+```json
+{
+  "token": "...",
   "current_password": "MotDePasseActuel123!"
 }
 ```
@@ -276,9 +310,42 @@ Changement de mot de passe :
 ```
 
 L'email est normalisé en minuscules et vérifié de manière insensible à la casse.
-Le mot de passe actuel est obligatoire pour changer l'email ou le mot de passe.
+Le mot de passe actuel est obligatoire pour confirmer le changement d'email ou
+changer le mot de passe.
 Le nouveau mot de passe applique les mêmes règles que l'inscription et le reset
 password.
+
+Notifications email envoyées après mise à jour du profil :
+
+- changement de nom/prénom : aucun email envoyé
+- demande de changement d'email : email envoyé à l'adresse actuelle avec lien de confirmation et lien de reset password
+- confirmation du changement d'email : email envoyé à la nouvelle adresse
+- changement de mot de passe : email de sécurité envoyé à l'adresse email du compte avant modification, avec un lien direct de reset password si l'utilisateur n'est pas à l'origine du changement
+
+Ces notifications utilisent la configuration email Django existante
+(`EMAIL_BACKEND`, `DEFAULT_FROM_EMAIL`, `FRONTEND_URL`, `SUPPORT_EMAIL`,
+variables SMTP). Si l'envoi SMTP échoue, la modification du profil reste validée
+et l'erreur est loggée côté serveur.
+`SUPPORT_EMAIL` vaut `projet.ggs@gmail.com` par défaut et est affiché dans les
+emails de sécurité lorsque l'utilisateur n'est pas à l'origine de l'action.
+Les emails sont envoyés avec une version texte et une version HTML. Dans la
+version HTML, les URLs sont placées derrière des liens lisibles comme
+`confirmez le changement d'email` ou `choisissez immédiatement un nouveau mot de
+passe`. La version texte garde l'URL complète en fallback.
+
+Erreurs utiles pour le profil :
+
+```text
+EMAIL_ALREADY_EXISTS
+CURRENT_PASSWORD_REQUIRED
+INVALID_CURRENT_PASSWORD
+INVALID_EMAIL_CHANGE_TOKEN
+EMAIL_CHANGE_TOKEN_EXPIRED
+EMAIL_CHANGE_TOKEN_STALE
+PASSWORD_FIELDS_REQUIRED
+PASSWORD_MISMATCH
+WEAK_PASSWORD
+```
 
 Les routes d'administration utilisateur sont protégées par `IsAdminUser`.
 Elles demandent donc un utilisateur connecté avec `is_staff=true` :
@@ -342,6 +409,7 @@ Limites configurées :
 | `POST /users/token/refresh/` | `token_refresh` | `30/minute` |
 | `POST /users/password-reset/request/` | `password_reset_request` | `5/hour` |
 | `POST /users/password-reset/confirm/` | `password_reset_confirm` | `10/hour` |
+| `POST /users/email-change/confirm/` | `email_change_confirm` | `10/hour` |
 | `POST /contact/` | `contact` | `5/hour` |
 
 Quand une limite est dépassée, DRF renvoie :

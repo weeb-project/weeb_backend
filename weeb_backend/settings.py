@@ -161,6 +161,7 @@ REST_FRAMEWORK = {
         'token_refresh': '30/minute',
         'password_reset_request': '5/hour',
         'password_reset_confirm': '10/hour',
+        'email_change_confirm': '10/hour',
         'two_factor_verify': '10/minute',
         'contact': '5/hour',
     },
@@ -204,6 +205,7 @@ EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
 EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=False, cast=bool)
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='Weeb <no-reply@weeb.local>')
+SUPPORT_EMAIL = config('SUPPORT_EMAIL', default='projet.ggs@gmail.com')
 
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',

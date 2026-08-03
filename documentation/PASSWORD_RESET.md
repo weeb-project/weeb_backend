@@ -73,10 +73,17 @@ EMAIL_HOST_PASSWORD
 EMAIL_USE_TLS
 EMAIL_USE_SSL
 DEFAULT_FROM_EMAIL
+SUPPORT_EMAIL
 FRONTEND_URL
 ```
 
 Par défaut en local, `EMAIL_BACKEND` utilise `django.core.mail.backends.console.EmailBackend`.
+Cette même configuration email est aussi utilisée pour les notifications de sécurité
+envoyées après changement d'email ou de mot de passe depuis le profil utilisateur.
+La notification de changement de mot de passe contient un lien direct de reset
+password vers `{FRONTEND_URL}/reset-password?uidb64=...&token=...`.
+Les emails incluent aussi une version HTML afin d'afficher ce lien derrière un
+texte cliquable, tout en gardant l'URL complète dans la version texte fallback.
 
 Pour envoyer de vrais emails via Gmail SMTP, les variables attendues dans `.env` sont :
 
@@ -89,6 +96,7 @@ EMAIL_HOST_PASSWORD=mot-de-passe-application-google
 EMAIL_USE_TLS=True
 EMAIL_USE_SSL=False
 DEFAULT_FROM_EMAIL=Weeb <adresse-gmail-du-projet@gmail.com>
+SUPPORT_EMAIL=projet.ggs@gmail.com
 ```
 
 `EMAIL_HOST_PASSWORD` doit être un mot de passe d'application Google, pas le mot de passe normal du compte Gmail.
