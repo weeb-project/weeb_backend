@@ -14,7 +14,7 @@ Deux validateurs personnalisés ont aussi été ajoutés dans `users/validators.
 - `UppercaseValidator` : impose au moins une lettre majuscule
 - `SpecialCharacterValidator` : impose au moins un caractère spécial
 
-Ces règles sont appliquées lors de la création de compte et lors du reset password grâce à `validate_password_strength()` dans `users/serializers.py`.
+Ces règles sont appliquées lors de la création de compte, du reset password et du changement de mot de passe depuis le profil grâce à `validate_password_strength()` dans `users/serializers.py`.
 
 Un mot de passe valide doit donc respecter au minimum :
 

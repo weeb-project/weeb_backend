@@ -161,6 +161,7 @@ REST_FRAMEWORK = {
         'token_refresh': '30/minute',
         'password_reset_request': '5/hour',
         'password_reset_confirm': '10/hour',
+        'two_factor_verify': '10/minute',
         'contact': '5/hour',
     },
 }

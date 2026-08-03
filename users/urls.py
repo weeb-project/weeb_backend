@@ -10,6 +10,10 @@ from users.views import (
     PasswordResetConfirmView,
     RegisterView,
     RequestPasswordResetEmailView,
+    TwoFactorConfirmView,
+    TwoFactorDisableView,
+    TwoFactorLoginVerifyView,
+    TwoFactorSetupView,
 )
 
 urlpatterns = [
@@ -29,6 +33,12 @@ urlpatterns = [
 
     # Refresh token
     path('token/refresh/', CookieTokenRefreshView.as_view(), name='token_refresh'),
+
+    # Two-factor authentication
+    path('2fa/setup/', TwoFactorSetupView.as_view(), name='two_factor_setup'),
+    path('2fa/confirm/', TwoFactorConfirmView.as_view(), name='two_factor_confirm'),
+    path('2fa/disable/', TwoFactorDisableView.as_view(), name='two_factor_disable'),
+    path('2fa/verify-login/', TwoFactorLoginVerifyView.as_view(), name='two_factor_verify_login'),
 
     # Password Reset
     path('password-reset/request/', RequestPasswordResetEmailView.as_view(), name='password-reset-request'),
