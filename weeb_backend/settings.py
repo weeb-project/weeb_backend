@@ -222,6 +222,10 @@ EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
 EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=False, cast=bool)
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='Weeb <no-reply@weeb.local>')
 SUPPORT_EMAIL = config('SUPPORT_EMAIL', default='projet.ggs@gmail.com')
+BREVO_API_KEY = config('BREVO_API_KEY', default='')
+BREVO_SENDER_EMAIL = config('BREVO_SENDER_EMAIL', default='')
+BREVO_SENDER_NAME = config('BREVO_SENDER_NAME', default='Weeb')
+BREVO_API_TIMEOUT = config('BREVO_API_TIMEOUT', default=10, cast=int)
 
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',
