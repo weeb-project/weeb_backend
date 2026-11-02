@@ -6,7 +6,6 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.core import signing
 from django.core.signing import BadSignature, SignatureExpired
-from django.core.mail import send_mail
 from django.db import IntegrityError
 from django.utils.encoding import force_bytes, force_str
 from django.utils.html import escape
@@ -22,6 +21,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from blog.models import Article
 from blog.serializers import ArticleSerializer
+from .email_service import send_transactional_email
 from .serializers import (
     AdminUserSerializer,
     CustomTokenObtainPairSerializer,
@@ -163,12 +163,10 @@ def build_email_change_confirm_url(token):
 def send_profile_security_email(subject, message, recipient_email, html_message=None):
     """Envoie une notification de sécurité sans bloquer la requête."""
     try:
-        send_mail(
+        send_transactional_email(
             subject=subject,
             message=message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[recipient_email],
-            fail_silently=False,
+            recipient_email=recipient_email,
             html_message=html_message,
         )
     except Exception:
@@ -942,12 +940,10 @@ class RequestPasswordResetEmailView(generics.GenericAPIView):
             )
 
             try:
-                send_mail(
+                send_transactional_email(
                     subject=subject,
                     message=message,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[user.email],
-                    fail_silently=False,
+                    recipient_email=user.email,
                     html_message=html_message,
                 )
             except Exception:
