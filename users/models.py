@@ -124,6 +124,8 @@ class CustomUser(AbstractUser):
     # L'email reste obligatoire et unique
     email = models.EmailField(_('adresse email'), unique=True, blank=False)
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    totp_secret = models.CharField(max_length=32, blank=True, default='')
+    is_two_factor_enabled = models.BooleanField(default=False)
 
     # On indique à Django que l'email est le nouvel identifiant de connexion
     USERNAME_FIELD = 'email'

@@ -1,0 +1,54 @@
+# Endpoints
+
+## Authentification et utilisateurs
+
+```text
+GET    /users/
+PATCH  /users/
+GET    /users/me/articles/
+GET    /users/me/favorites/
+POST   /users/register/
+POST   /users/login/
+POST   /users/logout/
+POST   /users/token/refresh/
+POST   /users/email-change/confirm/
+POST   /users/2fa/setup/
+POST   /users/2fa/confirm/
+POST   /users/2fa/disable/
+POST   /users/2fa/verify-login/
+POST   /users/password-reset/request/
+POST   /users/password-reset/confirm/
+```
+
+## Articles
+
+```text
+GET    /articles/
+POST   /articles/
+POST   /articles/<slug:slug>/favorite/
+DELETE /articles/<slug:slug>/favorite/
+GET    /articles/<slug:slug>/
+PUT    /articles/<slug:slug>/
+PATCH  /articles/<slug:slug>/
+DELETE /articles/<slug:slug>/
+```
+
+## Contact
+
+```text
+POST   /contact/
+```
+
+## API admin
+
+```text
+GET    /api/admin/users/
+GET    /api/admin/users/<uuid:user_id>/
+PATCH  /api/admin/users/<uuid:user_id>/
+```
+
+## Django admin
+
+```text
+GET    /admin/
+```
