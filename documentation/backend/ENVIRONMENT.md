@@ -60,7 +60,6 @@ FRONTEND_URL=http://localhost:5173
 REFRESH_TOKEN_COOKIE_SECURE=False
 REFRESH_TOKEN_COOKIE_SAMESITE=Strict
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
-EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
 SUPPORT_EMAIL=projet.ggs@gmail.com
 BREVO_API_KEY=
 BREVO_SENDER_EMAIL=
@@ -68,8 +67,9 @@ BREVO_SENDER_NAME=Weeb
 BREVO_API_TIMEOUT=10
 ```
 
-En local, laisser `BREVO_API_KEY` vide permet d'afficher les emails dans le
-terminal sans envoyer de véritable message. Sur Render, les quatre variables
+En local, laisser `BREVO_API_KEY` vide suffit pour utiliser automatiquement le
+backend console et afficher les emails dans le terminal sans envoyer de
+véritable message. Sur Render, les quatre variables
 Brevo sont configurées dans l'environnement du service. La clé réelle ne doit
 jamais être enregistrée dans `.env.example`, la documentation ou Git.
 

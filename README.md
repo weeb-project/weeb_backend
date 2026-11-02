@@ -68,7 +68,6 @@ Variables email utiles pour le reset password et les notifications de sécurité
 du profil :
 
 ```env
-EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
 SUPPORT_EMAIL=projet.ggs@gmail.com
 FRONTEND_URL=http://localhost:3000
 REFRESH_TOKEN_COOKIE_SECURE=False

@@ -72,7 +72,6 @@ BREVO_API_KEY
 BREVO_SENDER_EMAIL
 BREVO_SENDER_NAME
 BREVO_API_TIMEOUT
-EMAIL_BACKEND
 SUPPORT_EMAIL
 FRONTEND_URL
 ```
@@ -89,11 +88,10 @@ BREVO_SENDER_NAME=Weeb
 BREVO_API_TIMEOUT=10
 ```
 
-En local, la clé reste vide et le backend console affiche le contenu des emails
-dans le terminal :
+En local, la clé reste vide et le backend console, utilisé par défaut, affiche le
+contenu des emails dans le terminal :
 
 ```env
-EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
 BREVO_API_KEY=
 ```
 
