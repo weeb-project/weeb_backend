@@ -100,7 +100,6 @@ ssl.SSLCertVerificationError: certificate verify failed
 Dans ce cas, activer l'environnement virtuel puis indiquer à Python le bundle de certificats fourni par `certifi` :
 
 ```bash
-source .venv/bin/activate
 python3 -m pip install --upgrade certifi
 export SSL_CERT_FILE=$(python3 -m certifi)
 ```
@@ -110,9 +109,24 @@ Cette variable est utile uniquement pour la session de terminal courante. Elle p
 
 ### Lancement
 
+Sur macOS, depuis la racine du projet :
+
 ```bash
-python3 manage.py migrate
-python3 manage.py runserver
+export SSL_CERT_FILE="$(python -m certifi)"
+python manage.py migrate
+python manage.py runserver
+```
+
+Si `certifi` n'est pas encore installé, lancer une fois
+`python -m pip install certifi` après l'activation de l'environnement virtuel.
+Refaire l'activation et l'export dans chaque nouvel onglet ou fenêtre de terminal.
+
+
+Sur Windows :
+
+```bash
+python manage.py migrate
+python manage.py runserver
 ```
 
 Serveur dispo sur :
@@ -124,3 +138,6 @@ http://127.0.0.1:8000/
 ## Documentation technique
 
 Les choix d'implémentation déjà réalisés sont résumés dans [IMPLEMENTATION.md](IMPLEMENTATION.md).
+
+Pour configurer la tâche planifiée qui maintient une activité PostgreSQL sur
+Supabase, voir [SUPABASE_KEEPALIVE.md](documentation/devOps/SUPABASE_KEEPALIVE.md).
