@@ -10,10 +10,11 @@ User = get_user_model()
 
 
 def normalize_email(value):
+    """Normalise l'email pour les recherches et créations de compte."""
     return User.objects.normalize_email(value).lower()
 
 
-def validate_password_strength(value):
+def validate_password_strength(value, user=None):
     """
     Valide le mot de passe contre les règles Django (AUTH_PASSWORD_VALIDATORS).
     
@@ -23,6 +24,8 @@ def validate_password_strength(value):
     
     Args:
         value (str): Le mot de passe en clair à valider.
+        user (CustomUser, optional): L'utilisateur associé, utile pour les règles
+                                    comparant le mot de passe au profil.
     
     Returns:
         None: Ne retourne rien si la validation est réussie.
@@ -41,7 +44,7 @@ def validate_password_strength(value):
         # Passe la validation silencieusement
     """
     try:
-        validate_password(value)
+        validate_password(value, user=user)
     except DjangoValidationError as e:
         raise ValidationError({
             "error_code": "WEAK_PASSWORD",
@@ -80,8 +83,178 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'first_name', 'last_name', 'is_staff', 'is_active']
-        read_only_fields = ['id', 'email', 'first_name', 'last_name', 'is_staff', 'is_active']
+        fields = [
+            'id',
+            'email',
+            'first_name',
+            'last_name',
+            'is_staff',
+            'is_active',
+            'is_two_factor_enabled',
+        ]
+        read_only_fields = [
+            'id',
+            'email',
+            'first_name',
+            'last_name',
+            'is_staff',
+            'is_active',
+            'is_two_factor_enabled',
+        ]
+
+
+class CurrentUserUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializer de mise à jour du profil de l'utilisateur connecté.
+    """
+    id = serializers.UUIDField(source='public_id', read_only=True)
+    email = serializers.EmailField(required=False, validators=[])
+    current_password = serializers.CharField(write_only=True, required=False)
+    password = serializers.CharField(write_only=True, required=False)
+    password_confirm = serializers.CharField(write_only=True, required=False)
+
+    class Meta:
+        model = User
+        fields = [
+            'id',
+            'email',
+            'first_name',
+            'last_name',
+            'is_staff',
+            'is_active',
+            'is_two_factor_enabled',
+            'current_password',
+            'password',
+            'password_confirm',
+        ]
+        read_only_fields = [
+            'id',
+            'is_staff',
+            'is_active',
+            'is_two_factor_enabled',
+        ]
+
+    def validate(self, attrs):
+        """Valide les changements sensibles du profil."""
+        user = self.instance
+        email = attrs.get('email')
+        password = attrs.get('password')
+        password_confirm = attrs.get('password_confirm')
+        current_password = attrs.get('current_password')
+        email_changed = False
+
+        if email is not None:
+            email = normalize_email(email)
+            attrs['email'] = email
+            email_changed = email != user.email.lower()
+
+            if email_changed and User.objects.filter(email__iexact=email).exclude(pk=user.pk).exists():
+                raise ValidationError({
+                    "error_code": "EMAIL_ALREADY_EXISTS",
+                    "message": "Cet email existe déjà"
+                })
+
+        if password or password_confirm:
+            if not password or not password_confirm:
+                raise ValidationError({
+                    "error_code": "PASSWORD_FIELDS_REQUIRED",
+                    "message": "Le nouveau mot de passe et sa confirmation sont requis"
+                })
+
+            if password != password_confirm:
+                raise ValidationError({
+                    "error_code": "PASSWORD_MISMATCH",
+                    "message": "Les mots de passe ne correspondent pas"
+                })
+
+            validate_password_strength(password, user=user)
+
+        if password:
+            if not current_password:
+                raise ValidationError({
+                    "error_code": "CURRENT_PASSWORD_REQUIRED",
+                    "message": "Le mot de passe actuel est requis"
+                })
+
+            if not user.check_password(current_password):
+                raise ValidationError({
+                    "error_code": "INVALID_CURRENT_PASSWORD",
+                    "message": "Le mot de passe actuel est incorrect"
+                })
+
+        return attrs
+
+    def update(self, instance, validated_data):
+        """Met à jour le profil et hache le nouveau mot de passe si fourni."""
+        validated_data.pop('email', None)
+        validated_data.pop('current_password', None)
+        password = validated_data.pop('password', None)
+        validated_data.pop('password_confirm', None)
+
+        update_fields = []
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+            update_fields.append(field)
+
+        if password:
+            instance.set_password(password)
+            update_fields.append('password')
+
+        if update_fields:
+            try:
+                instance.save(update_fields=update_fields)
+            except IntegrityError:
+                raise ValidationError({
+                    "error_code": "EMAIL_ALREADY_EXISTS",
+                    "message": "Cet email existe déjà"
+                })
+
+        return instance
+
+
+class EmailChangeConfirmSerializer(serializers.Serializer):
+    """
+    Serializer de confirmation du changement d'email.
+    """
+    token = serializers.CharField(required=True)
+    current_password = serializers.CharField(write_only=True, required=True)
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    """
+    Serializer admin pour consulter et valider les utilisateurs.
+    """
+    id = serializers.UUIDField(source='public_id', read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'id',
+            'email',
+            'first_name',
+            'last_name',
+            'is_staff',
+            'is_active',
+            'date_joined',
+        ]
+        read_only_fields = ['id', 'email', 'date_joined']
+
+    def validate(self, attrs):
+        """Empêche un admin de désactiver ou rétrograder son propre compte."""
+        request = self.context.get('request')
+        if request and self.instance == request.user:
+            if attrs.get('is_active') is False:
+                raise ValidationError({
+                    "error_code": "CANNOT_DEACTIVATE_SELF",
+                    "message": "Vous ne pouvez pas désactiver votre propre compte"
+                })
+            if attrs.get('is_staff') is False:
+                raise ValidationError({
+                    "error_code": "CANNOT_REMOVE_OWN_ADMIN_ACCESS",
+                    "message": "Vous ne pouvez pas retirer vos propres droits admin"
+                })
+
+        return attrs
 
 
 class PublicAuthorSerializer(serializers.ModelSerializer):
@@ -118,6 +291,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Les tokens contiennent maintenant email, first_name, last_name, is_staff
     """
     def validate(self, attrs):
+        """Normalise l'email et renvoie des erreurs de connexion explicites."""
         email_field = self.username_field
         user = None
         if attrs.get(email_field):
@@ -173,8 +347,24 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['first_name'] = user.first_name
         token['last_name'] = user.last_name
         token['is_staff'] = user.is_staff
+        token['is_two_factor_enabled'] = user.is_two_factor_enabled
 
         return token
+
+
+class TwoFactorCodeSerializer(serializers.Serializer):
+    """Valide un code TOTP à 6 chiffres."""
+    code = serializers.RegexField(
+        regex=r'^\d{6}$',
+        error_messages={
+            'invalid': 'Le code 2FA doit contenir 6 chiffres.'
+        },
+    )
+
+
+class TwoFactorLoginVerifySerializer(TwoFactorCodeSerializer):
+    """Valide la confirmation TOTP après email/password."""
+    two_factor_token = serializers.CharField(required=True)
 
 class UserRegisterSerializer(serializers.ModelSerializer):
     """
@@ -339,6 +529,7 @@ class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
 
     def validate_email(self, value):
+        """Normalise l'email soumis."""
         return normalize_email(value)
 
 class PasswordResetConfirmSerializer(serializers.Serializer):

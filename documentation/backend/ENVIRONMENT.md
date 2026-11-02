@@ -68,4 +68,9 @@ EMAIL_HOST_PASSWORD=
 EMAIL_USE_TLS=True
 EMAIL_USE_SSL=False
 DEFAULT_FROM_EMAIL=Weeb <adresse-gmail-du-projet@gmail.com>
+SUPPORT_EMAIL=projet.ggs@gmail.com
 ```
+
+`SUPPORT_EMAIL` est affiché dans les emails de sécurité lorsque l'utilisateur
+n'est pas à l'origine d'un changement sensible du profil. Par défaut, l'adresse
+utilisée est `projet.ggs@gmail.com`.
