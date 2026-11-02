@@ -16,7 +16,8 @@ Le cycle de travail du backend est donc :
 branche de travail → Pull Request vers dev → fusion dans dev → déploiement Render
 ```
 
-Une modification présente uniquement sur une branche de travail n'est pas encoredisponible sur le staging. Après une fusion, vérifier le statut du déploiement
+Une modification présente uniquement sur une branche de travail n'est pas encore
+disponible sur le staging. Après une fusion, vérifier le statut du déploiement
 dans Render avant de tester la fonctionnalité depuis un frontend.
 
 La branche `main` n'est pas utilisée par ce service de staging. Elle servira au
@@ -70,10 +71,12 @@ POST /users/logout/
 POST /users/token/refresh/
 ```
 
-Avec `fetch`, ajouter l'option suivante à chaque appel concerné :
+Avec `fetch`, ajouter cette option à chaque appel concerné :
 
 ```js
-credentials: "include";
+fetch(url, {
+  credentials: "include",
+});
 ```
 
 ## Autorisation du frontend dans Render
@@ -110,7 +113,7 @@ Dans les outils de développement du navigateur, les requêtes doivent partir ve
 `https://weeb-backend-staging.onrender.com`. Une erreur CORS signifie généralement
 que l'origine exacte du frontend manque dans la variable Render.
 
-## Limites actuelles du staging
+## Particularités actuelles du staging
 
 - Le service Render Free se met en veille après une période d'inactivité. La
   première requête peut donc être lente.
