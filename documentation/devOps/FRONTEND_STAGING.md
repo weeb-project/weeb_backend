@@ -8,9 +8,7 @@ https://weeb-backend-staging.onrender.com
 
 ## Fonctionnement du staging
 
-Le service `weeb-backend-staging` sur Render est connecté à la branche `dev` du
-dépôt backend. Render redéploie automatiquement le backend après chaque nouveau
-commit fusionné dans `dev`.
+Le service `weeb-backend-staging` sur Render est connecté à la branche `dev` du dépôt backend. Render redéploie automatiquement le backend après chaque nouveau commit fusionné dans `dev`.
 
 Le cycle de travail du backend est donc :
 
@@ -18,8 +16,7 @@ Le cycle de travail du backend est donc :
 branche de travail → Pull Request vers dev → fusion dans dev → déploiement Render
 ```
 
-Une modification présente uniquement sur une branche de travail n'est pas encore
-disponible sur le staging. Après une fusion, vérifier le statut du déploiement
+Une modification présente uniquement sur une branche de travail n'est pas encoredisponible sur le staging. Après une fusion, vérifier le statut du déploiement
 dans Render avant de tester la fonctionnalité depuis un frontend.
 
 La branche `main` n'est pas utilisée par ce service de staging. Elle servira au
@@ -76,7 +73,7 @@ POST /users/token/refresh/
 Avec `fetch`, ajouter l'option suivante à chaque appel concerné :
 
 ```js
-credentials: "include"
+credentials: "include";
 ```
 
 ## Autorisation du frontend dans Render
@@ -85,13 +82,12 @@ Après le déploiement du frontend, transmettre son URL publique au responsable 
 backend. Celui-ci doit ajouter son origine à `CORS_ALLOWED_ORIGINS` dans Render :
 
 ```env
-CORS_ALLOWED_ORIGINS=https://sylvqinz.github.io,https://front-2.vercel.app,https://front-3.vercel.app
+CORS_ALLOWED_ORIGINS=https://weeb-kappa.vercel.app,https://front-2.vercel.app,https://front-3.vercel.app
 ```
 
 Une origine contient uniquement le protocole et le domaine : aucun chemin et
-aucun `/` final. Par exemple, pour
-`https://sylvqinz.github.io/weeb_sylvain_zanini`, l'origine à ajouter est
-`https://sylvqinz.github.io`.
+aucun `/` final. Le premier frontend validé utilise actuellement
+`https://weeb-kappa.vercel.app`.
 
 Le backend de staging utilise aussi :
 
@@ -118,7 +114,8 @@ que l'origine exacte du frontend manque dans la variable Render.
 
 - Le service Render Free se met en veille après une période d'inactivité. La
   première requête peut donc être lente.
-- Gmail SMTP ne fonctionne pas sur Render Free, qui bloque le port `587`.
+- Les emails transactionnels sont envoyés avec l'API HTTPS Brevo. Les secrets
+  Brevo restent uniquement dans les variables d'environnement Render.
 - Les liens de reset password et de confirmation d'email ouvrent actuellement le
   frontend défini par `FRONTEND_URL`. La sélection du frontend demandeur sera
   ajoutée séparément avec une liste d'URL autorisées.

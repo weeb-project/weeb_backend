@@ -15,7 +15,9 @@ POST /users/password-reset/confirm/
 
 La réponse reste toujours générique, même si l'email n'existe pas, pour éviter l'énumération d'utilisateurs.
 
-L'envoi est fait dans `users/views.py` avec `django.core.mail.send_mail`.
+L'envoi passe par `users/email_service.py`. Sur Render, ce service appelle l'API
+HTTPS transactionnelle de Brevo. Sans clé Brevo, il utilise le backend email
+Django, notamment le backend console en local.
 
 Le token est généré avec `django.contrib.auth.tokens.PasswordResetTokenGenerator`. Il dépend notamment de l'état courant de l'utilisateur et devient invalide après changement du mot de passe.
 
@@ -34,7 +36,8 @@ Le contenu envoyé contient :
 - le lien de reset contenant `uidb64` et `token`
 - une phrase indiquant d'ignorer l'email si la demande ne vient pas de l'utilisateur
 
-En cas d'échec SMTP, l'erreur est loggée côté serveur, mais la réponse API reste générique pour ne pas révéler si l'email existe.
+En cas d'échec d'envoi, l'erreur est loggée côté serveur, mais la réponse API
+reste générique pour ne pas révéler si l'email existe.
 
 ## Rate limiting
 
@@ -65,76 +68,41 @@ Cette protection limite le spam d'emails de réinitialisation et les tentatives 
 La configuration d'envoi est dans `weeb_backend/settings.py` via les variables :
 
 ```text
+BREVO_API_KEY
+BREVO_SENDER_EMAIL
+BREVO_SENDER_NAME
+BREVO_API_TIMEOUT
 EMAIL_BACKEND
-EMAIL_HOST
-EMAIL_PORT
-EMAIL_HOST_USER
-EMAIL_HOST_PASSWORD
-EMAIL_USE_TLS
-EMAIL_USE_SSL
-DEFAULT_FROM_EMAIL
 SUPPORT_EMAIL
 FRONTEND_URL
 ```
 
-Par défaut en local, `EMAIL_BACKEND` utilise `django.core.mail.backends.console.EmailBackend`.
-Cette même configuration email est aussi utilisée pour les notifications de sécurité
+Sur Render, `BREVO_API_KEY` active automatiquement l'envoi par l'API HTTPS
+Brevo. `BREVO_SENDER_EMAIL` doit correspondre exactement à un expéditeur vérifié
+dans Brevo. Le timeout empêche un appel externe de bloquer durablement un worker
+Gunicorn.
+
+```env
+BREVO_API_KEY=cle-secrete-configuree-uniquement-dans-render
+BREVO_SENDER_EMAIL=expediteur-verifie@example.com
+BREVO_SENDER_NAME=Weeb
+BREVO_API_TIMEOUT=10
+```
+
+En local, la clé reste vide et le backend console affiche le contenu des emails
+dans le terminal :
+
+```env
+EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+BREVO_API_KEY=
+```
+
+Cette même configuration est utilisée pour les notifications de sécurité
 envoyées après changement d'email ou de mot de passe depuis le profil utilisateur.
 La notification de changement de mot de passe contient un lien direct de reset
 password vers `{FRONTEND_URL}/reset-password?uidb64=...&token=...`.
 Les emails incluent aussi une version HTML afin d'afficher ce lien derrière un
 texte cliquable, tout en gardant l'URL complète dans la version texte fallback.
-
-Pour envoyer de vrais emails via Gmail SMTP, les variables attendues dans `.env` sont :
-
-```env
-EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_HOST_USER=adresse-gmail-du-projet@gmail.com
-EMAIL_HOST_PASSWORD=mot-de-passe-application-google
-EMAIL_USE_TLS=True
-EMAIL_USE_SSL=False
-DEFAULT_FROM_EMAIL=Weeb <adresse-gmail-du-projet@gmail.com>
-SUPPORT_EMAIL=projet.ggs@gmail.com
-```
-
-`EMAIL_HOST_PASSWORD` doit être un mot de passe d'application Google, pas le mot de passe normal du compte Gmail.
-
-Ces valeurs ne doivent jamais être commit dans Git. Elles restent uniquement dans le fichier `.env` local ou dans les variables d'environnement de production.
-
-## Test SMTP
-
-Pour tester l'envoi SMTP depuis Django :
-
-```bash
-python3 manage.py shell
-```
-
-Puis :
-
-```python
-from django.core.mail import send_mail
-from django.conf import settings
-
-send_mail(
-    "Test SMTP Weeb",
-    "Si tu reçois ce mail, Gmail SMTP fonctionne.",
-    settings.DEFAULT_FROM_EMAIL,
-    ["adresse-de-test@example.com"],
-    fail_silently=False,
-)
-```
-
-Si la commande retourne `1`, l'email a été accepté par le serveur SMTP.
-
-Sur macOS, si Python retourne une erreur de certificat SSL, il faut utiliser les certificats du virtualenv :
-
-```bash
-source .venv/bin/activate
-python3 -m pip install --upgrade certifi
-export SSL_CERT_FILE=$(python3 -m certifi)
-```
 
 ## URL frontend
 
@@ -168,4 +136,11 @@ avec :
 }
 ```
 
-En production, `FRONTEND_URL` devra être remplacé par l'URL publique du frontend.
+Sur le staging actuel :
+
+```env
+FRONTEND_URL=https://weeb-kappa.vercel.app
+```
+
+Cette configuration a été validée avec un email Brevo et un changement effectif
+du mot de passe depuis le frontend Vercel.
