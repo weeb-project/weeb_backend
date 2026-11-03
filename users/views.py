@@ -7,9 +7,13 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.core import signing
 from django.core.signing import BadSignature, SignatureExpired
 from django.db import IntegrityError
+from django.shortcuts import render
+from django.urls import reverse
 from django.utils.encoding import force_bytes, force_str
+from django.utils.cache import patch_cache_control
 from django.utils.html import escape
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.views import View
 from rest_framework import generics, status
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import AllowAny, IsAdminUser
@@ -135,11 +139,33 @@ def build_authenticated_response(user, message="Connexion réussie", response_st
     return response
 
 
-def build_password_reset_url(user):
+def build_password_reset_url(user, reset_base_url=None):
     """Construit l'URL frontend permettant de choisir un nouveau mot de passe."""
     uidb64 = urlsafe_base64_encode(force_bytes(user.public_id))
     token = PasswordResetTokenGenerator().make_token(user)
-    return f"{settings.FRONTEND_URL}/reset-password?uidb64={uidb64}&token={token}"
+    if reset_base_url is None:
+        reset_base_url = f"{settings.FRONTEND_URL.rstrip('/')}/reset-password"
+    query_string = urlencode({"uidb64": uidb64, "token": token})
+    return f"{reset_base_url}?{query_string}"
+
+
+def get_password_reset_user(uidb64):
+    """Retourne l'utilisateur d'un lien de reset ou None si l'identifiant est invalide."""
+    try:
+        user_public_id = force_str(urlsafe_base64_decode(uidb64))
+        return User.objects.get(public_id=user_public_id)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        return None
+
+
+def reset_user_password(uidb64, token, password):
+    """Valide un token puis remplace le mot de passe de l'utilisateur."""
+    user = get_password_reset_user(uidb64)
+    if user is None or not PasswordResetTokenGenerator().check_token(user, token):
+        return False
+    user.set_password(password)
+    user.save()
+    return True
 
 
 def build_email_change_token(user, new_email):
@@ -921,7 +947,13 @@ class RequestPasswordResetEmailView(generics.GenericAPIView):
 
         if user:
             # Construit l'URL complète pour React
-            reset_url = build_password_reset_url(user)
+            reset_base_url = request.build_absolute_uri(
+                reverse('password-reset-form')
+            )
+            reset_url = build_password_reset_url(
+                user,
+                reset_base_url=reset_base_url,
+            )
 
             subject = "Réinitialisation de votre mot de passe"
             message = (
@@ -1056,39 +1088,89 @@ class PasswordResetConfirmView(generics.GenericAPIView):
         token = serializer.validated_data['token']
         password = serializer.validated_data['password']
 
-        try:
-            # 1. Décode l'ID utilisateur depuis base64
-            user_public_id = force_str(urlsafe_base64_decode(uidb64))
-            user = User.objects.get(public_id=user_public_id)
-
-            # 2. Vérifie que le token est valide et non expiré
-            if not PasswordResetTokenGenerator().check_token(user, token):
-                return Response(
-                    {
-                        "error_code": "INVALID_TOKEN",
-                        "message": "Le lien de réinitialisation est invalide ou a expiré."
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # 3. Le password a déjà été validé dans le serializer.validate_password()
-            # Donc on peut directement le changer
-
-            # 4. Change le mot de passe
-            user.set_password(password)
-            user.save()
-
-            return Response(
-                {"message": "Le mot de passe a été réinitialisé avec succès."},
-                status=status.HTTP_200_OK
-            )
-
-        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-            # Erreur lors du décodage ou utilisateur inexistant
+        if not reset_user_password(uidb64, token, password):
             return Response(
                 {
                     "error_code": "INVALID_TOKEN",
-                    "message": "Le lien de réinitialisation est invalide."
+                    "message": "Le lien de réinitialisation est invalide ou a expiré."
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        return Response(
+            {"message": "Le mot de passe a été réinitialisé avec succès."},
+            status=status.HTTP_200_OK
+        )
+
+
+class PasswordResetFormView(View):
+    """Page HTML commune permettant de terminer un reset password."""
+
+    template_name = "users/password_reset_form.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        response = super().dispatch(request, *args, **kwargs)
+        patch_cache_control(
+            response,
+            no_cache=True,
+            no_store=True,
+            must_revalidate=True,
+            private=True,
+        )
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'none'; "
+            "style-src 'unsafe-inline'; "
+            "form-action 'self'; "
+            "base-uri 'none'; "
+            "frame-ancestors 'none'"
+        )
+        return response
+
+    def get(self, request):
+        uidb64 = request.GET.get("uidb64", "")
+        token = request.GET.get("token", "")
+        user = get_password_reset_user(uidb64)
+        valid_link = bool(
+            user
+            and token
+            and PasswordResetTokenGenerator().check_token(user, token)
+        )
+        return render(request, self.template_name, {
+            "uidb64": uidb64,
+            "token": token,
+            "valid_link": valid_link,
+        })
+
+    def post(self, request):
+        uidb64 = request.POST.get("uidb64", "")
+        token = request.POST.get("token", "")
+        password = request.POST.get("password", "")
+        password_confirm = request.POST.get("password_confirm", "")
+        context = {
+            "uidb64": uidb64,
+            "token": token,
+            "valid_link": True,
+        }
+
+        if password != password_confirm:
+            context["error"] = "Les deux mots de passe ne correspondent pas."
+            return render(request, self.template_name, context, status=400)
+
+        serializer = PasswordResetConfirmSerializer(data={
+            "uidb64": uidb64,
+            "token": token,
+            "password": password,
+        })
+        if not serializer.is_valid():
+            context["error"] = (
+                "Le mot de passe ne respecte pas les règles de sécurité."
+            )
+            return render(request, self.template_name, context, status=400)
+
+        if not reset_user_password(uidb64, token, password):
+            context["valid_link"] = False
+            return render(request, self.template_name, context, status=400)
+
+        return render(request, self.template_name, {"success": True})
