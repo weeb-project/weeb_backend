@@ -20,22 +20,30 @@ Une modification présente uniquement sur une branche de travail n'est pas encor
 disponible sur le staging. Après une fusion, vérifier le statut du déploiement
 dans Render avant de tester la fonctionnalité depuis un frontend.
 
-La branche `main` n'est pas utilisée par ce service de staging. Elle servira au
-backend de production lorsque celui-ci sera créé.
+La branche `main` n'est pas utilisée par ce service. Elle alimente séparément le
+service `weeb-backend-production`, connecté à la base Supabase de production.
+Consulter la page [Environnements staging et production](ENVIRONMENTS.md) avant
+de basculer un frontend d'un backend vers l'autre.
 
 ## Configuration du frontend
 
-À la racine du projet frontend, créer un fichier `.env.production` contenant
-l'URL du backend Render :
+À la racine du projet frontend, créer un fichier `.env.staging` contenant l'URL
+du backend Render :
 
 ```env
 VITE_API_URL=https://weeb-backend-staging.onrender.com
 ```
 
 Ne pas ajouter `/api`, `/users`, `/articles` ou de `/` final à cette URL.
-Vite charge automatiquement `.env.production` lors de `npm run build`. Les
-variables `VITE_*` sont publiques et intégrées au frontend pendant ce build. Il
-faut donc reconstruire et redéployer le frontend après chaque modification.
+Construire explicitement le frontend en mode staging :
+
+```bash
+npm run build -- --mode staging
+```
+
+Les variables `VITE_*` sont publiques et intégrées au frontend pendant ce
+build. Il faut donc reconstruire et redéployer le frontend après chaque
+modification.
 
 Pour développer avec le backend Django local, créer séparément un fichier
 `.env.local` non partagé :
@@ -44,11 +52,25 @@ Pour développer avec le backend Django local, créer séparément un fichier
 VITE_API_URL=http://localhost:8000
 ```
 
-Vérifier que `.env.local` est ignoré par Git. Le fichier `.env.production` peut
-être versionné : l'URL publique du backend n'est pas un secret.
+Vérifier que `.env.local` est ignoré par Git. Le fichier `.env.staging` peut être
+versionné : l'URL publique du backend n'est pas un secret.
 
 Le frontend utilise ainsi le backend local avec `npm run dev`, puis le backend
-Render lors du build destiné à GitHub Pages ou Vercel.
+de staging lors du build réalisé avec `--mode staging`. Pour un déploiement
+Vercel, la variable peut aussi être définie directement dans les paramètres du
+projet Vercel.
+
+Dans Vercel, configurer `VITE_API_URL` pour l'environnement **Preview** et
+utiliser `dev` comme branche frontend de test :
+
+```text
+Branche frontend: dev
+Environnement Vercel: Preview
+VITE_API_URL: https://weeb-backend-staging.onrender.com
+```
+
+La branche `main` reste suivie par Vercel Production et utilise le backend
+Render production. Aucun environnement Vercel personnalisé n'est nécessaire.
 
 Avec Axios, utiliser une instance commune qui transmet les cookies :
 
@@ -81,16 +103,21 @@ fetch(url, {
 
 ## Autorisation du frontend dans Render
 
-Après le déploiement du frontend, transmettre son URL publique au responsable du
-backend. Celui-ci doit ajouter son origine à `CORS_ALLOWED_ORIGINS` dans Render :
+Après le déploiement Preview du frontend, transmettre son URL stable de branche
+au responsable du backend. Celui-ci doit ajouter cette origine à
+`CORS_ALLOWED_ORIGINS` sur le Render staging :
 
 ```env
-CORS_ALLOWED_ORIGINS=https://weeb-kappa.vercel.app,https://front-2.vercel.app,https://front-3.vercel.app
+CORS_ALLOWED_ORIGINS=https://preview-dev-front-1.vercel.app,https://preview-dev-front-2.vercel.app,https://preview-dev-front-3.vercel.app
 ```
 
 Une origine contient uniquement le protocole et le domaine : aucun chemin et
-aucun `/` final. Le premier frontend validé utilise actuellement
-`https://weeb-kappa.vercel.app`.
+aucun `/` final. Utiliser l'alias stable associé à `dev`, pas une URL propre à
+un seul commit.
+
+Le domaine principal tel que `https://weeb-kappa.vercel.app` appartient au
+frontend Production. Une fois la Preview validée, il peut être retiré du CORS
+staging. Il doit rester autorisé dans le CORS du Render production.
 
 Le backend de staging utilise aussi :
 
