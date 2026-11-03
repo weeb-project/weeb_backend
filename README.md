@@ -115,6 +115,13 @@ http://127.0.0.1:8000/
 
 ## Documentation technique
 
+La documentation complète du backend est publiée sur GitHub Pages :
+
+**[Consulter la documentation Weeb Backend](https://weeb-project.github.io/weeb_backend/)**
+
+Elle est mise à jour automatiquement après chaque modification de la
+documentation fusionnée dans `dev`.
+
 Les choix d'implémentation déjà réalisés sont résumés dans [IMPLEMENTATION.md](IMPLEMENTATION.md).
 
 Pour configurer la tâche planifiée qui maintient une activité PostgreSQL sur
