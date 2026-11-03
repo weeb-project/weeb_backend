@@ -69,6 +69,7 @@ class PasswordResetFormTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Nouveau mot de passe")
         self.assertContains(response, 'name="password_confirm"')
+        self.assertIn("csrftoken", response.cookies)
         self.assertIn("no-store", response.headers["Cache-Control"])
         self.assertEqual(response.headers["Referrer-Policy"], "no-referrer")
         self.assertEqual(
