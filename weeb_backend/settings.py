@@ -38,6 +38,8 @@ if render_hostname:
     CSRF_TRUSTED_ORIGINS.append(f'https://{render_hostname}')
 CSRF_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SAMESITE = 'Lax'
 
 
 # Application definition
