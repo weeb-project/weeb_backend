@@ -72,7 +72,7 @@ class PasswordResetFormTests(SimpleTestCase):
         self.assertContains(response, 'name="password_confirm"')
         self.assertIn("csrftoken", response.cookies)
         self.assertIn("no-store", response.headers["Cache-Control"])
-        self.assertEqual(response.headers["Referrer-Policy"], "no-referrer")
+        self.assertEqual(response.headers["Referrer-Policy"], "origin")
         self.assertEqual(
             response.headers["X-Robots-Tag"],
             "noindex, nofollow, noarchive",

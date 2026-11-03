@@ -1120,7 +1120,7 @@ class PasswordResetFormView(View):
             must_revalidate=True,
             private=True,
         )
-        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Referrer-Policy"] = "origin"
         response.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
         response.headers["Content-Security-Policy"] = (
             "default-src 'none'; "
