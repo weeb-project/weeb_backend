@@ -11,9 +11,11 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.utils.encoding import force_bytes, force_str
 from django.utils.cache import patch_cache_control
+from django.utils.decorators import method_decorator
 from django.utils.html import escape
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.views import View
+from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import generics, status
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import AllowAny, IsAdminUser
@@ -1103,6 +1105,7 @@ class PasswordResetConfirmView(generics.GenericAPIView):
         )
 
 
+@method_decorator(ensure_csrf_cookie, name="dispatch")
 class PasswordResetFormView(View):
     """Page HTML commune permettant de terminer un reset password."""
 
