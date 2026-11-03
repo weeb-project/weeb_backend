@@ -146,7 +146,9 @@ def build_password_reset_url(user, reset_base_url=None):
     uidb64 = urlsafe_base64_encode(force_bytes(user.public_id))
     token = PasswordResetTokenGenerator().make_token(user)
     if reset_base_url is None:
-        reset_base_url = f"{settings.FRONTEND_URL.rstrip('/')}/reset-password"
+        reset_base_url = (
+            f"{settings.BACKEND_URL}/users/password-reset/form/"
+        )
     query_string = urlencode({"uidb64": uidb64, "token": token})
     return f"{reset_base_url}?{query_string}"
 
@@ -908,7 +910,7 @@ class RequestPasswordResetEmailView(generics.GenericAPIView):
         1. Valide que l'email est au format correct
         2. Cherche l'utilisateur (silencieusement, sans révéler son existence)
         3. Si trouvé : génère les éléments du lien (uidb64 encodé en base64, token signé)
-        4. Construits l'URL complète pour le frontend React
+        4. Construit l'URL de la page HTML commune servie par Django
         5. Envoie un email avec le lien de réinitialisation
         6. Retourne une réponse générique TOUJOURS (même si email inexistant)
         
@@ -928,7 +930,7 @@ class RequestPasswordResetEmailView(generics.GenericAPIView):
             Le lien généré contient :
             - uidb64: UUID public utilisateur encodé en base64 (URL-safe)
             - token: Token cryptographique signé généré par Django
-            Format: {frontend_url}/reset-password?uidb64={uidb64}&token={token}
+            Format: {backend_url}/users/password-reset/form/?uidb64=...&token=...
         
         Example:
             >>> response = client.post('/users/password-reset/request/', {

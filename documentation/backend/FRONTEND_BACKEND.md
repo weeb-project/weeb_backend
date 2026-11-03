@@ -73,6 +73,28 @@ DELETE /articles/:slug/
 POST /contact/
 ```
 
+## Reset password côté frontend
+
+Le frontend intervient uniquement pour demander l'envoi de l'email :
+
+```js
+await api.post("/users/password-reset/request/", {
+  email,
+});
+```
+
+Après la réponse, afficher le message générique renvoyé par le backend. Ne pas
+indiquer si l'adresse correspond réellement à un compte.
+
+Le frontend ne doit pas construire de lien, transmettre `frontend_url`, lire
+`uidb64` ou `token`, ni afficher le formulaire de nouveau mot de passe. L'email
+Brevo contient un lien vers `/users/password-reset/form/`, une page HTML commune
+servie directement par Django.
+
+`POST /users/password-reset/confirm/` reste disponible uniquement pour la
+compatibilité avec les anciennes implémentations. Il n'est pas nécessaire dans
+le nouveau parcours frontend.
+
 `GET /users/` renvoie l'utilisateur connecté. Cette route est protégée et doit
 être appelée avec l'access token :
 

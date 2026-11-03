@@ -200,6 +200,14 @@ SIMPLE_JWT = {
 }
 
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
+BACKEND_URL = config(
+    'BACKEND_URL',
+    default=(
+        f'https://{render_hostname}'
+        if render_hostname
+        else 'http://localhost:8000'
+    ),
+).rstrip('/')
 REFRESH_TOKEN_COOKIE_SECURE = config(
     'REFRESH_TOKEN_COOKIE_SECURE',
     default=not DEBUG,

@@ -322,10 +322,13 @@ Notifications email envoyées après mise à jour du profil :
 - confirmation du changement d'email : email envoyé à la nouvelle adresse
 - changement de mot de passe : email de sécurité envoyé à l'adresse email du compte avant modification, avec un lien direct de reset password si l'utilisateur n'est pas à l'origine du changement
 
-Ces notifications utilisent la configuration email Django existante
-(`EMAIL_BACKEND`, `DEFAULT_FROM_EMAIL`, `FRONTEND_URL`, `SUPPORT_EMAIL`,
-variables SMTP). Si l'envoi SMTP échoue, la modification du profil reste validée
-et l'erreur est loggée côté serveur.
+Ces notifications utilisent le service d'email transactionnel commun. Sur
+Render, l'envoi passe par l'API HTTPS Brevo (`BREVO_API_KEY`,
+`BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME` et `BREVO_API_TIMEOUT`). En local,
+le backend email console est utilisé quand aucune clé Brevo n'est définie.
+`FRONTEND_URL` sert aux confirmations de changement d'adresse et `BACKEND_URL`
+aux liens de reset password. Si l'envoi échoue, la modification du profil reste
+validée et l'erreur est loggée côté serveur.
 `SUPPORT_EMAIL` vaut `projet.ggs@gmail.com` par défaut et est affiché dans les
 emails de sécurité lorsque l'utilisateur n'est pas à l'origine de l'action.
 Les emails sont envoyés avec une version texte et une version HTML. Dans la

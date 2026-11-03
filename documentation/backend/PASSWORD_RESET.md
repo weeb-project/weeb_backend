@@ -1,11 +1,14 @@
 # Reset password par email
 
-La demande de réinitialisation se fait en deux étapes :
+Le parcours principal de réinitialisation utilise ces routes :
 
 ```text
 POST /users/password-reset/request/
-POST /users/password-reset/confirm/
+GET|POST /users/password-reset/form/
 ```
+
+L'ancien endpoint JSON `POST /users/password-reset/confirm/` reste disponible
+pour compatibilité, mais les frontends n'ont plus besoin de l'appeler.
 
 `POST /users/password-reset/request/` reçoit un email :
 
@@ -86,6 +89,7 @@ BREVO_SENDER_NAME
 BREVO_API_TIMEOUT
 SUPPORT_EMAIL
 FRONTEND_URL
+BACKEND_URL
 ```
 
 Sur Render, `BREVO_API_KEY` active automatiquement l'envoi par l'API HTTPS
@@ -109,46 +113,26 @@ BREVO_API_KEY=
 
 Cette même configuration est utilisée pour les notifications de sécurité
 envoyées après changement d'email ou de mot de passe depuis le profil utilisateur.
-La notification de changement de mot de passe contient un lien direct de reset
-password vers `{FRONTEND_URL}/reset-password?uidb64=...&token=...`.
+Tous les liens de reset pointent vers
+`{BACKEND_URL}/users/password-reset/form/?uidb64=...&token=...`.
 Les emails incluent aussi une version HTML afin d'afficher ce lien derrière un
 texte cliquable, tout en gardant l'URL complète dans la version texte fallback.
 
-## URL frontend
+## URL de la page de reset
 
-`FRONTEND_URL` doit pointer vers l'application frontend qui affiche le formulaire de nouveau mot de passe.
-
-En local, avec un frontend lancé séparément :
-
-```env
-FRONTEND_URL=http://localhost:3000
-```
-
-ou, pour Vite :
+`BACKEND_URL` désigne l'adresse publique du backend qui sert le formulaire HTML.
+En local :
 
 ```env
-FRONTEND_URL=http://localhost:5173
+BACKEND_URL=http://localhost:8000
 ```
 
-Le frontend doit avoir une route `/reset-password` qui lit les paramètres `uidb64` et `token`, puis appelle :
+Sur Render, `BACKEND_URL` est déduite automatiquement de
+`RENDER_EXTERNAL_HOSTNAME`. Elle peut aussi être définie explicitement si le
+backend utilise un domaine personnalisé.
 
-```text
-POST /users/password-reset/confirm/
-```
-
-avec :
-
-```json
-{
-  "uidb64": "...",
-  "token": "...",
-  "password": "NouveauMotDePasse123!"
-}
-```
-
-`FRONTEND_URL` reste utilisé par les autres liens de sécurité, notamment la
-confirmation de changement d'adresse email. Le lien principal de reset password
-est construit avec le domaine du backend qui reçoit la demande.
+`FRONTEND_URL` reste utilisé par les autres parcours, notamment la confirmation
+de changement d'adresse email.
 
 L'endpoint JSON `POST /users/password-reset/confirm/` reste disponible pour la
 compatibilité avec les frontends existants.
