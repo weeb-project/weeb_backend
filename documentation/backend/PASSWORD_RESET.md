@@ -7,11 +7,23 @@ POST /users/password-reset/request/
 POST /users/password-reset/confirm/
 ```
 
-`POST /users/password-reset/request/` reçoit un email, génère un `uidb64` et un token Django, puis envoie un lien au frontend :
+`POST /users/password-reset/request/` reçoit un email :
+
+```json
+{
+  "email": "utilisateur@example.com"
+}
+```
+
+Le backend génère un `uidb64` et un token Django, puis envoie un lien vers une
+page HTML commune servie directement par Django :
 
 ```text
-{FRONTEND_URL}/reset-password?uidb64={uidb64}&token={token}
+https://backend.example/users/password-reset/form/?uidb64={uidb64}&token={token}
 ```
+
+Cette page utilise un formulaire protégé par CSRF, applique les mêmes règles de
+mot de passe que l'API et ne dépend d'aucun des trois frontends.
 
 La réponse reste toujours générique, même si l'email n'existe pas, pour éviter l'énumération d'utilisateurs.
 
@@ -134,11 +146,9 @@ avec :
 }
 ```
 
-Sur le staging actuel :
+`FRONTEND_URL` reste utilisé par les autres liens de sécurité, notamment la
+confirmation de changement d'adresse email. Le lien principal de reset password
+est construit avec le domaine du backend qui reçoit la demande.
 
-```env
-FRONTEND_URL=https://weeb-kappa.vercel.app
-```
-
-Cette configuration a été validée avec un email Brevo et un changement effectif
-du mot de passe depuis le frontend Vercel.
+L'endpoint JSON `POST /users/password-reset/confirm/` reste disponible pour la
+compatibilité avec les frontends existants.

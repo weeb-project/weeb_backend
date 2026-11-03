@@ -99,6 +99,18 @@ REFRESH_TOKEN_COOKIE_SECURE=True
 REFRESH_TOKEN_COOKIE_SAMESITE=None
 ```
 
+Chaque frontend demande un reset avec l'adresse email uniquement :
+
+```js
+await api.post("/users/password-reset/request/", {
+  email,
+});
+```
+
+Le lien reçu ouvre `/users/password-reset/form/` sur le backend Render. Django
+sert une page HTML commune et sécurisée pour saisir le nouveau mot de passe. Les
+frontends n'ont donc aucune redirection particulière à configurer pour le reset.
+
 ## Vérifications après déploiement
 
 1. Ouvrir `https://weeb-backend-staging.onrender.com/health/` et vérifier la
