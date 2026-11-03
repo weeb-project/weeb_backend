@@ -1,0 +1,71 @@
+site_name: Weeb Backend
+site_description: Documentation technique du backend Weeb
+site_url: https://weeb-project.github.io/weeb_backend/
+repo_url: https://github.com/weeb-project/weeb_backend
+repo_name: weeb-project/weeb_backend
+
+docs_dir: documentation
+site_dir: site
+
+theme:
+  name: material
+  language: fr
+  features:
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - search.suggest
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-7
+        name: Passer au thème sombre
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-4
+        name: Passer au thème clair
+
+plugins:
+  - search:
+      lang: fr
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+exclude_docs: |
+  backend/RAPPORT_BACKEND.md
+  devOps/TODO_BEFORE_PRODUCTION.md
+
+nav:
+  - Accueil: index.md
+  - Intégration frontend:
+      - Guide frontend/backend: backend/FRONTEND_BACKEND.md
+      - Endpoints: backend/ENDPOINTS.md
+      - Connexion au staging: devOps/FRONTEND_STAGING.md
+  - Authentification et utilisateurs:
+      - Authentification: backend/AUTH.md
+      - Modèle utilisateur: backend/USER_MODEL.md
+      - Politique de mot de passe: backend/PASSWORD_POLICY.md
+      - Réinitialisation du mot de passe: backend/PASSWORD_RESET.md
+      - Double authentification: backend/TWO_FACTOR_AUTH.md
+      - Administration: backend/ADMIN.md
+  - Fonctionnalités:
+      - Articles: backend/ARTICLES.md
+      - Contact: backend/CONTACT.md
+  - Configuration:
+      - Variables d'environnement: backend/ENVIRONMENT.md
+      - MkDocs et GitHub Pages: devOps/MKDOCS.md
+      - Supabase Keep Alive: devOps/SUPABASE_KEEPALIVE.md
+  - Historique:
+      - Mise à jour du 3 août: updates/03-08.md
