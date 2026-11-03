@@ -12,7 +12,8 @@ tester et intégrer l'API Django du projet Weeb.
 | Frontend Sylvain production | `https://weeb-kappa.vercel.app` | Frontend `main` |
 | Frontend Guillaume production | `https://weeb-guillaume-amselle-andreux.vercel.app` | Frontend `main` |
 | Frontend Gaëlle production | `https://weeb-hazel.vercel.app` | Frontend `main` |
-| Frontends staging | URLs Vercel Preview stables associées à chaque branche `dev` | Frontend `dev` |
+| Frontend Sylvain staging | `https://weeb-git-dev-sylvqinz.vercel.app` | Frontend `dev` |
+| Autres frontends staging | URLs Vercel Preview stables à renseigner | Frontend `dev` |
 | Documentation | `https://weeb-project.github.io/weeb_backend/` | Documentation de `dev` |
 
 Les domaines principaux Vercel utilisent le backend production. Les Previews
