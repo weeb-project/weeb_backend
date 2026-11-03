@@ -9,6 +9,7 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
+import os
 from datetime import timedelta
 from pathlib import Path
 from decouple import Csv, config
@@ -28,7 +29,17 @@ SECRET_KEY = config('SECRET_KEY')
 # (où la variable ne sera peut-être pas définie), le mode DEBUG est désactivé.
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+if render_hostname := os.environ.get('RENDER_EXTERNAL_HOSTNAME'):
+    ALLOWED_HOSTS.append(render_hostname)
+
+CSRF_TRUSTED_ORIGINS = []
+if render_hostname:
+    CSRF_TRUSTED_ORIGINS.append(f'https://{render_hostname}')
+CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SAMESITE = 'Lax'
 
 
 # Application definition
@@ -51,6 +62,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -141,7 +153,19 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
+
+# Render termine HTTPS au niveau de son proxy puis transmet la requête à Django.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 AUTH_USER_MODEL = 'users.CustomUser'
 
@@ -178,6 +202,14 @@ SIMPLE_JWT = {
 }
 
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
+BACKEND_URL = config(
+    'BACKEND_URL',
+    default=(
+        f'https://{render_hostname}'
+        if render_hostname
+        else 'http://localhost:8000'
+    ),
+).rstrip('/')
 REFRESH_TOKEN_COOKIE_SECURE = config(
     'REFRESH_TOKEN_COOKIE_SECURE',
     default=not DEBUG,
@@ -206,6 +238,10 @@ EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
 EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=False, cast=bool)
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='Weeb <no-reply@weeb.local>')
 SUPPORT_EMAIL = config('SUPPORT_EMAIL', default='projet.ggs@gmail.com')
+BREVO_API_KEY = config('BREVO_API_KEY', default='')
+BREVO_SENDER_EMAIL = config('BREVO_SENDER_EMAIL', default='')
+BREVO_SENDER_NAME = config('BREVO_SENDER_NAME', default='Weeb')
+BREVO_API_TIMEOUT = config('BREVO_API_TIMEOUT', default=10, cast=int)
 
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',

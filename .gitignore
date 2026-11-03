@@ -13,6 +13,9 @@ ENV/
 *.log
 local_settings.py
 db.sqlite3
+db.sqlite3-journal
+staticfiles/
+site/
 db.sqlite3-*
 
 .pytest_cache/
@@ -24,5 +27,6 @@ coverage.xml
 .ruff_cache/
 
 .idea/
+.ruff_cache/
 .DS_Store
 Thumbs.db

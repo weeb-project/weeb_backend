@@ -64,24 +64,25 @@ cp .env.example .env
 
 Puis remplir les variables avec les valeurs disponibles sur le drive ou fournies par l'équipe.
 
-Variables email utiles pour le reset password et les notifications de sécurité du profil :
+Variables email utiles pour le reset password et les notifications de sécurité
+du profil :
 
 ```env
-EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-EMAIL_HOST=smtp.example.com
-EMAIL_PORT=587
-EMAIL_HOST_USER=your-smtp-user
-EMAIL_HOST_PASSWORD=your-smtp-password
-EMAIL_USE_TLS=True
-EMAIL_USE_SSL=False
-DEFAULT_FROM_EMAIL=Weeb <no-reply@example.com>
 SUPPORT_EMAIL=projet.ggs@gmail.com
 FRONTEND_URL=http://localhost:3000
+BACKEND_URL=http://localhost:8000
 REFRESH_TOKEN_COOKIE_SECURE=False
 REFRESH_TOKEN_COOKIE_SAMESITE=Strict
+BREVO_API_KEY=
+BREVO_SENDER_EMAIL=
+BREVO_SENDER_NAME=Weeb
+BREVO_API_TIMEOUT=10
 ```
 
-En local, si `EMAIL_BACKEND` n'est pas défini, Django utilise le backend console et affiche les emails dans le terminal.
+En local, Django utilise le backend console et affiche les emails dans le
+terminal. Sur Render, la présence de `BREVO_API_KEY` active l'envoi réel via
+l'API HTTPS Brevo. Les valeurs secrètes restent exclusivement dans les variables
+d'environnement Render.
 `SUPPORT_EMAIL` est l'adresse affichée dans les emails de sécurité quand
 l'utilisateur n'est pas à l'origine d'une modification sensible du profil.
 
@@ -89,37 +90,14 @@ En local HTTP, `REFRESH_TOKEN_COOKIE_SECURE` doit rester à `False` pour que le
 navigateur renvoie le cookie `refresh_token` lors de `POST /users/token/refresh/`.
 En production HTTPS, le passer à `True`.
 
-### Certificats SSL sur macOS
-
-Sur certains Mac, l'envoi d'emails SMTP peut échouer avec :
-
-```text
-ssl.SSLCertVerificationError: certificate verify failed
-```
-
-Dans ce cas, activer l'environnement virtuel puis indiquer à Python le bundle de certificats fourni par `certifi` :
-
-```bash
-python3 -m pip install --upgrade certifi
-export SSL_CERT_FILE=$(python3 -m certifi)
-```
-
-Cette variable est utile uniquement pour la session de terminal courante. Elle permet à Python de vérifier correctement le certificat TLS du serveur SMTP.
-
-
 ### Lancement
 
 Sur macOS, depuis la racine du projet :
 
 ```bash
-export SSL_CERT_FILE="$(python -m certifi)"
 python manage.py migrate
 python manage.py runserver
 ```
-
-Si `certifi` n'est pas encore installé, lancer une fois
-`python -m pip install certifi` après l'activation de l'environnement virtuel.
-Refaire l'activation et l'export dans chaque nouvel onglet ou fenêtre de terminal.
 
 
 Sur Windows :
@@ -136,6 +114,13 @@ http://127.0.0.1:8000/
 ```
 
 ## Documentation technique
+
+La documentation complète du backend est publiée sur GitHub Pages :
+
+**[Consulter la documentation Weeb Backend](https://weeb-project.github.io/weeb_backend/)**
+
+Elle est mise à jour automatiquement après chaque modification de la
+documentation fusionnée dans `dev`.
 
 Les choix d'implémentation déjà réalisés sont résumés dans [IMPLEMENTATION.md](IMPLEMENTATION.md).
 
