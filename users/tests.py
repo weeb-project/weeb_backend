@@ -1,7 +1,8 @@
 import json
+import re
 from unittest.mock import MagicMock, patch
 
-from django.test import SimpleTestCase, override_settings
+from django.test import Client, SimpleTestCase, override_settings
 from django.urls import reverse
 
 from .email_service import send_transactional_email
@@ -124,3 +125,34 @@ class PasswordResetFormTests(SimpleTestCase):
             "valid-token",
             "StrongPassword123!",
         )
+
+    @patch("users.views.reset_user_password", return_value=True)
+    @patch("users.views.PasswordResetTokenGenerator.check_token", return_value=True)
+    @patch("users.views.get_password_reset_user", return_value=MagicMock())
+    def test_csrf_protected_form_accepts_its_own_token(
+        self,
+        get_user,
+        check_token,
+        reset_password,
+    ):
+        client = Client(enforce_csrf_checks=True)
+        response = client.get(
+            reverse("password-reset-form"),
+            {"uidb64": "encoded-user", "token": "valid-token"},
+        )
+        html = response.content.decode("utf-8")
+        csrf_token = re.search(
+            r'name="csrfmiddlewaretoken" value="([^"]+)"',
+            html,
+        ).group(1)
+
+        response = client.post(reverse("password-reset-form"), {
+            "csrfmiddlewaretoken": csrf_token,
+            "uidb64": "encoded-user",
+            "token": "valid-token",
+            "password": "StrongPassword123!",
+            "password_confirm": "StrongPassword123!",
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Mot de passe modifié")
