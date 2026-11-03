@@ -33,6 +33,12 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 if render_hostname := os.environ.get('RENDER_EXTERNAL_HOSTNAME'):
     ALLOWED_HOSTS.append(render_hostname)
 
+CSRF_TRUSTED_ORIGINS = []
+if render_hostname:
+    CSRF_TRUSTED_ORIGINS.append(f'https://{render_hostname}')
+CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SAMESITE = 'Lax'
+
 
 # Application definition
 
