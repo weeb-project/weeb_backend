@@ -131,6 +131,6 @@ que l'origine exacte du frontend manque dans la variable Render.
   première requête peut donc être lente.
 - Les emails transactionnels sont envoyés avec l'API HTTPS Brevo. Les secrets
   Brevo restent uniquement dans les variables d'environnement Render.
-- Les liens de reset password et de confirmation d'email ouvrent actuellement le
-  frontend défini par `FRONTEND_URL`. La sélection du frontend demandeur sera
-  ajoutée séparément avec une liste d'URL autorisées.
+- Les liens de reset password ouvrent la page HTML commune servie par le backend.
+  Les liens de confirmation de changement d'email utilisent encore le frontend
+  défini par `FRONTEND_URL`.

@@ -70,6 +70,7 @@ du profil :
 ```env
 SUPPORT_EMAIL=projet.ggs@gmail.com
 FRONTEND_URL=http://localhost:3000
+BACKEND_URL=http://localhost:8000
 REFRESH_TOKEN_COOKIE_SECURE=False
 REFRESH_TOKEN_COOKIE_SAMESITE=Strict
 BREVO_API_KEY=
