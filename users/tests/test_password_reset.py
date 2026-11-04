@@ -13,6 +13,7 @@ from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
 from rest_framework.test import APITestCase
 from urllib.parse import parse_qs, urlsplit
+from django.core.cache import cache
 
 
 User = get_user_model()
@@ -25,6 +26,8 @@ class PasswordResetApiTests(APITestCase):
     password = "SecurePass123!"
 
     def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
         self.user = User.objects.create_user(
             email="user@example.com",
             password=self.password,
