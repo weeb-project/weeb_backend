@@ -103,6 +103,14 @@ jobs:
           docker push ${{ vars.DOCKERHUB_USERNAME }}/weeb-backend:${{ github.sha }}
           docker push ${{ vars.DOCKERHUB_USERNAME }}/weeb-backend:staging
 
+      - name: Déployer l'image sur Render staging
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        run: |
+          curl --fail-with-body \
+            --retry 3 \
+            --request POST \
+            "${{ secrets.RENDER_STAGING_DEPLOY_HOOK }}"
+
       - name: Publier l'image Docker de production
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |

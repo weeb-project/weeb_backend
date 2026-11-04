@@ -104,7 +104,7 @@ DATABASES = {
         'HOST': config('DB_HOST'),
         'PORT': config('DB_PORT', cast=int),
         'OPTIONS': {
-            'sslmode': 'require',
+            'sslmode': config('DB_SSLMODE', default='require'),
         },
     }
 }
