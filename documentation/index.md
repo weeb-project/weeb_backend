@@ -28,6 +28,7 @@ des branches frontend `dev` utilisent le backend staging.
 - [Déployer et tester avec le staging](devOps/FRONTEND_STAGING.md)
 - [Comprendre la conteneurisation Docker](devOps/DOCKER.md)
 - [Comprendre l'intégration continue](devOps/CI.md)
+- [Comprendre le pipeline Docker et CI/CD](devOps/PIPELINE_CICD.md)
 
 ## Mise à jour de la documentation
 

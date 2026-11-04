@@ -27,6 +27,7 @@ MkDocs publiée sur
 - [Connexion d'un frontend au staging](documentation/devOps/FRONTEND_STAGING.md)
 - [Docker](documentation/devOps/DOCKER.md)
 - [Intégration continue](documentation/devOps/CI.md)
+- [Pipeline Docker, CI et CD](documentation/devOps/PIPELINE_CICD.md)
 - [Documentation MkDocs et GitHub Pages](documentation/devOps/MKDOCS.md)
 - [Keepalive Supabase](documentation/devOps/SUPABASE_KEEPALIVE.md)
 
@@ -115,11 +116,12 @@ La conteneurisation locale du backend est validée avec :
 - Gunicorn comme serveur applicatif ;
 - un healthcheck Docker utilisant `/health/`.
 
-L'image se construit et le conteneur atteint l'état `healthy` localement. Le
-service Render staging utilise également ce Dockerfile. Les migrations, la
-collecte des fichiers statiques, Gunicorn, `/health/` et les principaux parcours
-fonctionnels ont été validés sur ce runtime. La production utilise encore le
-runtime Python et sera migrée séparément.
+L'image se construit et le conteneur atteint l'état `healthy` localement. GitHub
+Actions publie l'image validée dans `projetggs/weeb-backend` et Render staging
+utilise désormais le tag `staging` de ce registre. Les migrations, la collecte
+des fichiers statiques, Gunicorn, `/health/` et les principaux parcours
+fonctionnels ont été validés. La production utilise encore le runtime Python et
+sera migrée séparément.
 
 ## Vérifications déjà réalisées
 
@@ -149,6 +151,8 @@ La CI est déclenchée à chaque push et sur les Pull Requests vers `dev` ou
 maintenant validé ; le déploiement continu reste à conditionner à la réussite de
 la CI. Après les tests, les pushes sur `dev` et `main` publient la même image
 dans `projetggs/weeb-backend`, avec un tag par SHA et un tag d'environnement.
+Après la publication du staging, le workflow appelle son Deploy Hook Render.
+Cette dernière étape doit être validée sur le prochain push dans `dev`.
 
 ## Travaux restants
 
