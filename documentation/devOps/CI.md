@@ -25,6 +25,10 @@ Une étape en échec arrête le job et rend la CI rouge. Le futur déploiement
 dépendra de ce résultat afin qu'une version invalide ne puisse pas être mise en
 ligne.
 
+Après la réussite de tous les contrôles, un push sur `dev` ou `main` publie
+exactement l'image testée dans le dépôt Docker Hub
+`projetggs/weeb-backend`. Une Pull Request ne publie jamais d'image.
+
 ## Base PostgreSQL temporaire
 
 GitHub Actions démarre `postgres:16-alpine` uniquement pendant le workflow. La
@@ -73,8 +77,34 @@ PostgreSQL définis dans le workflow sont temporaires et limités au runner GitH
 La valeur `SECRET_KEY` utilisée pendant les tests n'est pas une clé de
 production.
 
+La publication dans Docker Hub utilise uniquement :
+
+```text
+DOCKERHUB_USERNAME   Variable GitHub contenant le namespace Docker Hub
+DOCKERHUB_TOKEN      Secret GitHub disposant de la permission Repo Read & Write
+```
+
+Le token n'est jamais ajouté à l'image ou affiché dans les logs.
+
+## Images publiées
+
+La même image qui a passé les tests reçoit deux tags : un tag immuable avec le
+SHA complet du commit et un tag correspondant à l'environnement.
+
+```text
+Push sur dev  → projetggs/weeb-backend:<sha>
+             → projetggs/weeb-backend:staging
+
+Push sur main → projetggs/weeb-backend:<sha>
+             → projetggs/weeb-backend:production
+```
+
+Le tag par SHA permet d'identifier précisément une version et de revenir à une
+image antérieure. Les tags `staging` et `production` indiquent la dernière image
+validée pour chaque environnement.
+
 ## Suite prévue
 
-Après validation du runtime Docker sur Render staging, un job de CD dépendra de
-la réussite de cette CI. Render ne sera appelé que si la construction et tous
-les tests passent.
+L'étape suivante consiste à faire utiliser l'image `:staging` par Render et à
+déclencher son déploiement seulement après la publication. Render ne sera appelé
+que si la construction et tous les tests passent.

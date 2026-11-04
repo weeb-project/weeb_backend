@@ -85,3 +85,28 @@ jobs:
             --env DB_SSLMODE=disable \
             weeb-backend-ci:${{ github.sha }} \
             python manage.py test --verbosity 2
+
+      - name: Se connecter à Docker Hub
+        if: >-
+          github.event_name == 'push' &&
+          (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+        uses: docker/login-action@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Publier l'image Docker du staging
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        run: |
+          docker tag weeb-backend-ci:${{ github.sha }} ${{ vars.DOCKERHUB_USERNAME }}/weeb-backend:${{ github.sha }}
+          docker tag weeb-backend-ci:${{ github.sha }} ${{ vars.DOCKERHUB_USERNAME }}/weeb-backend:staging
+          docker push ${{ vars.DOCKERHUB_USERNAME }}/weeb-backend:${{ github.sha }}
+          docker push ${{ vars.DOCKERHUB_USERNAME }}/weeb-backend:staging
+
+      - name: Publier l'image Docker de production
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker tag weeb-backend-ci:${{ github.sha }} ${{ vars.DOCKERHUB_USERNAME }}/weeb-backend:${{ github.sha }}
+          docker tag weeb-backend-ci:${{ github.sha }} ${{ vars.DOCKERHUB_USERNAME }}/weeb-backend:production
+          docker push ${{ vars.DOCKERHUB_USERNAME }}/weeb-backend:${{ github.sha }}
+          docker push ${{ vars.DOCKERHUB_USERNAME }}/weeb-backend:production
