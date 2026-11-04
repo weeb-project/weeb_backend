@@ -1,0 +1,127 @@
+# Dockeriser le backend Django
+
+Le backend utilise une image Docker indépendante de l'environnement. Pour la
+première validation, Compose charge le fichier local `.env`, qui doit pointer
+uniquement vers Supabase staging. La production ne doit pas être utilisée
+pendant le développement ou les premiers tests Docker.
+
+## Fichiers Docker
+
+```text
+Dockerfile       Construction de l'image Django et Gunicorn
+.dockerignore    Fichiers exclus du contexte de construction
+compose.yaml     Exécution locale avec les variables de .env
+```
+
+Le conteneur exécute au démarrage :
+
+1. les migrations Django sur la base configurée ;
+2. la collecte des fichiers statiques ;
+3. Gunicorn sur le port fourni.
+
+## Vérifier les variables locales
+
+Si le fichier `.env` n'existe pas encore, le créer à partir du modèle :
+
+```bash
+cp .env.example .env
+```
+
+Renseigner uniquement les variables locales et du Supabase staging :
+
+```env
+DEBUG=False
+DB_NAME=
+DB_USER=
+DB_PASSWORD=
+DB_HOST=
+DB_PORT=
+```
+
+Compléter les autres variables avec la configuration staging existante. Le
+fichier `.env` est ignoré par Git et par Docker : Compose le lit au démarrage
+sans le copier dans l'image.
+
+Ne jamais placer les identifiants Supabase production dans ce fichier.
+
+## Construire l'image
+
+Depuis la racine du dépôt :
+
+```bash
+docker compose build
+```
+
+## Démarrer le backend avec le staging
+
+```bash
+docker compose up
+```
+
+Le backend conteneurisé est accessible sur :
+
+```text
+http://localhost:8000
+```
+
+Vérifier son état :
+
+```bash
+curl http://localhost:8000/health/
+```
+
+Pour exécuter le service en arrière-plan et consulter ses logs :
+
+```bash
+docker compose up -d
+docker compose logs -f backend
+```
+
+## Exécuter les commandes Django
+
+```bash
+docker compose exec backend python manage.py check
+docker compose exec backend python manage.py showmigrations
+docker compose exec backend python manage.py test
+```
+
+Il est également possible de lancer les tests dans un conteneur temporaire :
+
+```bash
+docker compose run --rm backend python manage.py test
+```
+
+## Arrêter les conteneurs
+
+```bash
+docker compose down
+```
+
+Le projet n'utilise pas de base PostgreSQL locale dans Compose. Les données de
+test restent dans le Supabase staging configuré dans `.env`.
+
+## Déployer Docker sur Render staging
+
+La première migration Render concerne uniquement le staging :
+
+1. construire et tester l'image localement ;
+2. fusionner la branche Docker dans `dev` ;
+3. ouvrir les paramètres du service `weeb-backend-staging` ;
+4. conserver le dépôt, la branche `dev`, les variables staging et `/health/` ;
+5. changer le runtime de Python vers Docker ;
+6. sélectionner le `Dockerfile` situé à la racine ;
+7. déployer puis tester tous les parcours du staging.
+
+Render utilise alors le `CMD` du Dockerfile. Les anciennes commandes Build et
+Start du runtime Python ne sont plus utilisées.
+
+La production reste en runtime Python tant que le conteneur staging n'a pas été
+entièrement validé.
+
+## Sécurité
+
+- Ne jamais ajouter `.env` à Git ou à l'image.
+- Ne jamais placer un mot de passe dans `ARG` ou `ENV` du Dockerfile.
+- Injecter les secrets avec Compose ou les variables Render.
+- Vérifier les logs et le contenu de l'image avant tout déploiement.
+- Ne jamais tester Docker avec Supabase production.
