@@ -116,8 +116,10 @@ La conteneurisation locale du backend est validée avec :
 - un healthcheck Docker utilisant `/health/`.
 
 L'image se construit et le conteneur atteint l'état `healthy` localement. Le
-passage des services Render au runtime Docker doit encore être effectué sur le
-staging, validé, puis reproduit en production.
+service Render staging utilise également ce Dockerfile. Les migrations, la
+collecte des fichiers statiques, Gunicorn, `/health/` et les principaux parcours
+fonctionnels ont été validés sur ce runtime. La production utilise encore le
+runtime Python et sera migrée séparément.
 
 ## Vérifications déjà réalisées
 
@@ -142,16 +144,21 @@ Une base PostgreSQL temporaire est créée par GitHub Actions puis détruite à 
 fin du job. Les tests ne se connectent jamais à Supabase.
 
 La CI est déclenchée à chaque push et sur les Pull Requests vers `dev` ou
-`main`. Le déploiement continu sera ajouté séparément après validation de Docker
-sur Render staging.
+`main`. Elle a été validée sur GitHub avec succès pour les événements `push` et
+`pull_request` avant la fusion dans `dev`. Le runtime Docker du staging est
+maintenant validé ; le déploiement continu reste à conditionner à la réussite de
+la CI. Après les tests, les pushes sur `dev` et `main` publient la même image
+dans `projetggs/weeb-backend`, avec un tag par SHA et un tag d'environnement.
 
 ## Travaux restants
 
-- déployer et valider Docker sur Render staging, puis en production ;
-- compléter les tests automatisés Django et ajouter la couverture ;
-- mettre en place le CD conditionné par la réussite de la CI ;
-- ajouter un contrôle de santé après chaque déploiement ;
-- mettre en place le monitoring séparé du staging et de la production, avec
-  collecte des erreurs, contrôle d'uptime et alertes ;
-- documenter les indicateurs de qualité, l'utilisation des ressources et
-  l'impact énergétique de l'architecture.
+Les prochaines étapes sont réalisées dans cet ordre :
+
+1. compléter les tests automatisés Django et ajouter la mesure de couverture ;
+2. mettre en place le CD staging, conditionné par la réussite de la CI, avec un
+   contrôle de santé après le déploiement ;
+3. reproduire et valider le runtime Docker et le CD sur la production ;
+4. mettre en place le monitoring séparé du staging et de la production, avec
+   collecte des erreurs, contrôle d'uptime et alertes ;
+5. documenter les indicateurs de qualité, l'utilisation des ressources et
+   l'impact énergétique de l'architecture.

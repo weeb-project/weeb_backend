@@ -111,9 +111,10 @@ GitHub Actions et la commande du conteneur est remplacée par
 
 Voir [Intégration continue du backend](CI.md) pour le détail du pipeline.
 
-## Déployer Docker sur Render staging
+## Déploiement Docker sur Render staging
 
-La première migration Render concerne uniquement le staging :
+Le service `weeb-backend-staging` utilise le runtime Docker depuis le 4 novembre
+2026. La migration a été réalisée ainsi :
 
 1. construire et tester l'image localement ;
 2. fusionner la branche Docker dans `dev` ;
@@ -126,8 +127,39 @@ La première migration Render concerne uniquement le staging :
 Render utilise alors le `CMD` du Dockerfile. Les anciennes commandes Build et
 Start du runtime Python ne sont plus utilisées.
 
-La production reste en runtime Python tant que le conteneur staging n'a pas été
-entièrement validé.
+La validation a confirmé :
+
+- l'application des migrations Django ;
+- la collecte de 157 fichiers statiques dans `/app/staticfiles` ;
+- le démarrage de Gunicorn sur le port fourni par Render ;
+- une réponse HTTP 200 sur `/health/` ;
+- le fonctionnement des principaux parcours depuis le frontend staging.
+
+La production reste temporairement en runtime Python. Elle passera à Docker
+après l'ajout de la couverture et la mise en place du CD staging conditionné par
+la CI.
+
+## Registre Docker Hub
+
+Les images validées par la CI sont publiées dans :
+
+```text
+projetggs/weeb-backend
+```
+
+La CI ne reconstruit pas une nouvelle image pour la publication. Elle ajoute des
+tags à l'image qui vient de passer les contrôles Django et les tests, puis la
+publie :
+
+```text
+dev  → <sha> et staging
+main → <sha> et production
+```
+
+Render staging utilise encore temporairement le Dockerfile du dépôt. Après
+validation de la publication Docker Hub, sa source sera remplacée par l'image
+`projetggs/weeb-backend:staging`. Cette bascule permettra au CD de déployer
+exactement l'artefact testé par la CI.
 
 ## Sécurité
 

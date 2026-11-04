@@ -3,10 +3,10 @@
 Le projet utilise deux environnements backend complètement séparés. Ils ne
 partagent ni service Render, ni base Supabase, ni secrets.
 
-| Environnement | Branche backend | Service Render | Base de données |
-| --- | --- | --- | --- |
-| Staging | `dev` | `weeb-backend-staging` | Supabase staging |
-| Production | `main` | `weeb-backend-production` | Supabase production |
+| Environnement | Branche backend | Service Render | Runtime | Base de données |
+| --- | --- | --- | --- | --- |
+| Staging | `dev` | `weeb-backend-staging` | Docker | Supabase staging |
+| Production | `main` | `weeb-backend-production` | Python, migration Docker à venir | Supabase production |
 
 ```text
 feature/* → dev  → Render staging    → Supabase staging
@@ -22,8 +22,19 @@ Le staging sert à tester les changements avant leur mise en production :
 https://weeb-backend-staging.onrender.com
 ```
 
-Une fusion dans `dev` déclenche son déploiement automatique. Les comptes et les
-données créés dans cet environnement sont des données de test.
+Une fusion dans `dev` déclenche actuellement son déploiement automatique. Render
+construit le `Dockerfile` du dépôt puis démarre le conteneur avec son `CMD`. Les
+comptes et les données créés dans cet environnement sont des données de test.
+
+Le health check Render utilise :
+
+```text
+/health/
+```
+
+Le runtime Docker du staging a été validé le 4 novembre 2026 avec les migrations,
+la collecte des fichiers statiques, le démarrage de Gunicorn et les principaux
+parcours fonctionnels.
 
 ## Backend de production
 
@@ -35,6 +46,10 @@ https://weeb-backend-production.onrender.com
 
 Le service est connecté uniquement à `main`. Une fonctionnalité doit être
 validée sur le staging avant d'être fusionnée de `dev` vers `main`.
+
+La production utilise encore temporairement le runtime Python natif de Render.
+Elle sera migrée vers Docker uniquement après validation du pipeline de
+déploiement continu sur le staging.
 
 Les variables `DB_*` du service de production doivent toujours pointer vers le
 projet Supabase de production. Elles ne doivent jamais reprendre les
