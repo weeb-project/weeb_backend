@@ -3,9 +3,9 @@
 Le projet utilise deux environnements backend complètement séparés. Ils ne
 partagent ni service Render, ni base Supabase, ni secrets.
 
-| Environnement | Branche backend | Service Render | Runtime | Base de données |
+| Environnement | Branche backend | Service Render | Source d'exécution | Base de données |
 | --- | --- | --- | --- | --- |
-| Staging | `dev` | `weeb-backend-staging` | Docker | Supabase staging |
+| Staging | `dev` | `weeb-backend-staging` | `projetggs/weeb-backend:staging` | Supabase staging |
 | Production | `main` | `weeb-backend-production` | Python, migration Docker à venir | Supabase production |
 
 ```text
@@ -22,9 +22,13 @@ Le staging sert à tester les changements avant leur mise en production :
 https://weeb-backend-staging.onrender.com
 ```
 
-Une fusion dans `dev` déclenche actuellement son déploiement automatique. Render
-construit le `Dockerfile` du dépôt puis démarre le conteneur avec son `CMD`. Les
-comptes et les données créés dans cet environnement sont des données de test.
+GitHub Actions construit le `Dockerfile`, exécute les tests puis publie l'image
+`projetggs/weeb-backend:staging` dans Docker Hub. Render télécharge cette image
+et démarre le conteneur avec son `CMD`. Les comptes et les données créés dans
+cet environnement sont des données de test.
+
+La mise à jour automatique de Render après une publication Docker Hub nécessite
+encore l'appel du Deploy Hook depuis GitHub Actions.
 
 Le health check Render utilise :
 

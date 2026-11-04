@@ -68,6 +68,7 @@ nav:
       - Variables d'environnement: backend/ENVIRONMENT.md
       - Docker: devOps/DOCKER.md
       - Intégration continue: devOps/CI.md
+      - Pipeline CI/CD: devOps/PIPELINE_CICD.md
       - MkDocs et GitHub Pages: devOps/MKDOCS.md
       - Supabase Keep Alive: devOps/SUPABASE_KEEPALIVE.md
   - Historique:

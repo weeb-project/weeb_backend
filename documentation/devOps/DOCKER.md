@@ -156,10 +156,16 @@ dev  → <sha> et staging
 main → <sha> et production
 ```
 
-Render staging utilise encore temporairement le Dockerfile du dépôt. Après
-validation de la publication Docker Hub, sa source sera remplacée par l'image
-`projetggs/weeb-backend:staging`. Cette bascule permettra au CD de déployer
-exactement l'artefact testé par la CI.
+Render staging utilise maintenant l'image
+`docker.io/projetggs/weeb-backend:staging`. Il ne reconstruit donc plus le
+Dockerfile : il télécharge l'artefact produit et testé par GitHub Actions.
+
+Après la publication, GitHub Actions appelle automatiquement le Deploy Hook du
+staging. Render exécute alors `Deploy latest reference` et télécharge la nouvelle
+valeur du tag `staging`. Cette étape doit encore être validée lors du prochain
+push fusionné dans `dev`.
+
+Voir [Pipeline Docker, CI et CD](PIPELINE_CICD.md).
 
 ## Sécurité
 

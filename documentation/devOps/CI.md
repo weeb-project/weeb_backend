@@ -1,9 +1,9 @@
 # Intégration continue du backend
 
 Le workflow `.github/workflows/ci.yml` vérifie automatiquement le backend à
-chaque push et à chaque Pull Request vers `dev` ou `main`. Il n'effectue aucun
-déploiement : le CD sera ajouté séparément lorsque le staging Docker aura été
-validé.
+chaque push et à chaque Pull Request vers `dev` ou `main`. Il publie les images
+validées après une fusion dans `dev` ou `main`. Après la publication du staging,
+il appelle le Deploy Hook Render afin de télécharger la nouvelle image.
 
 ## Enchaînement
 
@@ -86,6 +86,14 @@ DOCKERHUB_TOKEN      Secret GitHub disposant de la permission Repo Read & Write
 
 Le token n'est jamais ajouté à l'image ou affiché dans les logs.
 
+Le CD staging utilise également :
+
+```text
+RENDER_STAGING_DEPLOY_HOOK   Secret GitHub contenant l'URL privée du hook Render
+```
+
+Ce secret n'est appelé qu'après la publication réussie des tags du staging.
+
 ## Images publiées
 
 La même image qui a passé les tests reçoit deux tags : un tag immuable avec le
@@ -103,8 +111,14 @@ Le tag par SHA permet d'identifier précisément une version et de revenir à un
 image antérieure. Les tags `staging` et `production` indiquent la dernière image
 validée pour chaque environnement.
 
-## Suite prévue
+## Déploiement du staging
 
-L'étape suivante consiste à faire utiliser l'image `:staging` par Render et à
-déclencher son déploiement seulement après la publication. Render ne sera appelé
-que si la construction et tous les tests passent.
+Render staging utilise l'image `:staging`. Après sa publication, la CI appelle
+le Deploy Hook avec une requête POST. Render exécute alors l'équivalent de
+`Deploy latest reference` et télécharge la nouvelle valeur du tag `staging`.
+
+Cette étape est configurée et doit être validée lors du prochain push fusionné
+dans `dev`. Le contrôle automatique de `/health/` après le déploiement reste à
+ajouter.
+
+Voir [Pipeline Docker, CI et CD](PIPELINE_CICD.md) pour l'enchaînement complet.
