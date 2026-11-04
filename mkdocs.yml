@@ -52,6 +52,7 @@ nav:
   - Intégration frontend:
       - Guide frontend/backend: backend/FRONTEND_BACKEND.md
       - Endpoints: backend/ENDPOINTS.md
+      - Staging et production: devOps/ENVIRONMENTS.md
       - Connexion au staging: devOps/FRONTEND_STAGING.md
   - Authentification et utilisateurs:
       - Authentification: backend/AUTH.md
