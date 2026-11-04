@@ -3,6 +3,27 @@
 Cette documentation regroupe les informations nécessaires pour développer,
 tester et intégrer l'API Django du projet Weeb.
 
+## Lancer rapidement le backend
+
+Docker est la méthode recommandée. Depuis la racine du dépôt :
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+Après avoir renseigné `.env` avec les valeurs locales ou staging fournies par
+l'équipe, le backend est disponible sur `http://localhost:8000`.
+
+```bash
+curl http://localhost:8000/health/
+```
+
+La réponse attendue est `{"status":"ok"}`. Pour les lancements suivants,
+utiliser `docker compose up`, puis `docker compose down` pour arrêter les
+conteneurs. Le [guide Docker](devOps/DOCKER.md) contient toutes les commandes
+utiles.
+
 ## Environnements actuels
 
 | Service | Adresse | Branche |

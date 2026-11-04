@@ -1,11 +1,58 @@
-# Workflow Git
+# Weeb Backend
 
-## Branches principales
+Backend Django de l'application Weeb, exécutable localement avec Docker et
+déployé sur Render à partir des images validées par la CI.
+
+## Démarrage rapide avec Docker
+
+Prérequis : Docker Desktop doit être installé et démarré.
+
+Depuis la racine du dépôt :
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+Renseigner dans `.env` les valeurs locales ou staging transmises par l'équipe.
+Ne jamais y placer les secrets de production.
+
+Vérifier ensuite le backend :
+
+```bash
+curl http://localhost:8000/health/
+```
+
+Réponse attendue :
+
+```json
+{"status":"ok"}
+```
+
+Le backend est alors disponible sur `http://localhost:8000`. Pour les
+lancements suivants, si l'image est toujours à jour :
+
+```bash
+docker compose up
+```
+
+Pour arrêter le projet :
+
+```bash
+docker compose down
+```
+
+Voir le [guide Docker complet](documentation/devOps/DOCKER.md) pour les logs,
+les commandes Django et la reconstruction de l'image.
+
+## Workflow Git
+
+### Branches principales
 - `main` → production 
 - `dev` → intégration des nouvelles fonctionnalités
 
 
-## Développement d’une feature
+### Développement d’une feature
 
 → Se placer sur la branche `dev` et la mettre à jour :
 
