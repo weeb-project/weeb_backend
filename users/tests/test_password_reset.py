@@ -66,7 +66,7 @@ class PasswordResetApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, [self.user.email])
-        self.assertIn("/reset-password?uidb64=", mail.outbox[0].body)
+        self.assertIn("/users/password-reset/form/?uidb64=", mail.outbox[0].body)
         self.assertIn("token=", mail.outbox[0].body)
 
     def test_password_reset_email_link_completes_password_reset_flow(self):
