@@ -66,6 +66,7 @@ nav:
       - Contact: backend/CONTACT.md
   - Configuration:
       - Variables d'environnement: backend/ENVIRONMENT.md
+      - Docker: devOps/DOCKER.md
       - MkDocs et GitHub Pages: devOps/MKDOCS.md
       - Supabase Keep Alive: devOps/SUPABASE_KEEPALIVE.md
   - Historique:
