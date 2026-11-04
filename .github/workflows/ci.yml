@@ -1,0 +1,120 @@
+name: Backend CI
+
+on:
+  push:
+  pull_request:
+    branches:
+      - dev
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Django tests and Docker build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: weeb_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d weeb_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Construire l'image Docker
+        run: docker build --tag weeb-backend-ci:${{ github.sha }} .
+
+      - name: Vérifier la configuration Django
+        run: |
+          docker run --rm --network host \
+            --env SECRET_KEY=ci-only-not-secret \
+            --env DEBUG=False \
+            --env DB_NAME=weeb_ci \
+            --env DB_USER=postgres \
+            --env DB_PASSWORD=postgres \
+            --env DB_HOST=127.0.0.1 \
+            --env DB_PORT=5432 \
+            --env DB_SSLMODE=disable \
+            weeb-backend-ci:${{ github.sha }} \
+            python manage.py check
+
+      - name: Vérifier les migrations
+        run: |
+          docker run --rm --network host \
+            --env SECRET_KEY=ci-only-not-secret \
+            --env DEBUG=False \
+            --env DB_NAME=weeb_ci \
+            --env DB_USER=postgres \
+            --env DB_PASSWORD=postgres \
+            --env DB_HOST=127.0.0.1 \
+            --env DB_PORT=5432 \
+            --env DB_SSLMODE=disable \
+            weeb-backend-ci:${{ github.sha }} \
+            python manage.py makemigrations --check --dry-run
+
+      - name: Exécuter les tests Django
+        run: |
+          docker run --rm --network host \
+            --env SECRET_KEY=ci-only-not-secret \
+            --env DEBUG=False \
+            --env DB_NAME=weeb_ci \
+            --env DB_USER=postgres \
+            --env DB_PASSWORD=postgres \
+            --env DB_HOST=127.0.0.1 \
+            --env DB_PORT=5432 \
+            --env DB_SSLMODE=disable \
+            weeb-backend-ci:${{ github.sha }} \
+            python manage.py test --verbosity 2
+
+      - name: Se connecter à Docker Hub
+        if: >-
+          github.event_name == 'push' &&
+          (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+        uses: docker/login-action@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Publier l'image Docker du staging
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        run: |
+          docker tag weeb-backend-ci:${{ github.sha }} ${{ vars.DOCKERHUB_USERNAME }}/weeb-backend:${{ github.sha }}
+          docker tag weeb-backend-ci:${{ github.sha }} ${{ vars.DOCKERHUB_USERNAME }}/weeb-backend:staging
+          docker push ${{ vars.DOCKERHUB_USERNAME }}/weeb-backend:${{ github.sha }}
+          docker push ${{ vars.DOCKERHUB_USERNAME }}/weeb-backend:staging
+
+      - name: Déployer l'image sur Render staging
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        run: |
+          curl --fail-with-body \
+            --retry 3 \
+            --request POST \
+            "${{ secrets.RENDER_STAGING_DEPLOY_HOOK }}"
+
+      - name: Publier l'image Docker de production
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker tag weeb-backend-ci:${{ github.sha }} ${{ vars.DOCKERHUB_USERNAME }}/weeb-backend:${{ github.sha }}
+          docker tag weeb-backend-ci:${{ github.sha }} ${{ vars.DOCKERHUB_USERNAME }}/weeb-backend:production
+          docker push ${{ vars.DOCKERHUB_USERNAME }}/weeb-backend:${{ github.sha }}
+          docker push ${{ vars.DOCKERHUB_USERNAME }}/weeb-backend:production
