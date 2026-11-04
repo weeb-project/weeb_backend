@@ -82,14 +82,11 @@ docker compose logs -f backend
 ```bash
 docker compose exec backend python manage.py check
 docker compose exec backend python manage.py showmigrations
-docker compose exec backend python manage.py test
 ```
 
-Il est également possible de lancer les tests dans un conteneur temporaire :
-
-```bash
-docker compose run --rm backend python manage.py test
-```
+Ne pas lancer `manage.py test` avec ce fichier Compose : il utilise le `.env`
+local et se connecterait à Supabase staging. Les tests automatisés disposent
+d'une base PostgreSQL temporaire dans GitHub Actions.
 
 ## Arrêter les conteneurs
 
@@ -97,8 +94,22 @@ docker compose run --rm backend python manage.py test
 docker compose down
 ```
 
-Le projet n'utilise pas de base PostgreSQL locale dans Compose. Les données de
-test restent dans le Supabase staging configuré dans `.env`.
+Le projet n'utilise pas de base PostgreSQL locale dans Compose. Le Supabase
+staging configuré dans `.env` sert uniquement au développement manuel, jamais
+aux tests automatisés.
+
+## Utilisation dans la CI
+
+La CI construit la même image depuis le `Dockerfile`, puis exécute les contrôles
+et les tests Django dans cette image. Elle utilise un PostgreSQL temporaire et
+ne se connecte jamais aux bases Supabase pour lancer les tests.
+
+Le fichier `compose.yaml` reste destiné au développement local. Aucun fichier
+`compose.test.yaml` n'est nécessaire : PostgreSQL est déclaré comme service dans
+GitHub Actions et la commande du conteneur est remplacée par
+`python manage.py test` pendant le workflow.
+
+Voir [Intégration continue du backend](CI.md) pour le détail du pipeline.
 
 ## Déployer Docker sur Render staging
 

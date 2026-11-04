@@ -26,6 +26,7 @@ MkDocs publiée sur
 - [Environnements staging et production](documentation/devOps/ENVIRONMENTS.md)
 - [Connexion d'un frontend au staging](documentation/devOps/FRONTEND_STAGING.md)
 - [Docker](documentation/devOps/DOCKER.md)
+- [Intégration continue](documentation/devOps/CI.md)
 - [Documentation MkDocs et GitHub Pages](documentation/devOps/MKDOCS.md)
 - [Keepalive Supabase](documentation/devOps/SUPABASE_KEEPALIVE.md)
 
@@ -133,12 +134,21 @@ Les parcours suivants ont été vérifiés manuellement sur le staging :
 - réinitialisation du mot de passe avec Brevo ;
 - permissions utilisateur, auteur et administrateur.
 
+## Intégration continue
+
+Le workflow `.github/workflows/ci.yml` construit l'image Docker et exécute dans
+cette image les contrôles Django, la vérification des migrations et les tests.
+Une base PostgreSQL temporaire est créée par GitHub Actions puis détruite à la
+fin du job. Les tests ne se connectent jamais à Supabase.
+
+La CI est déclenchée à chaque push et sur les Pull Requests vers `dev` ou
+`main`. Le déploiement continu sera ajouté séparément après validation de Docker
+sur Render staging.
+
 ## Travaux restants
 
 - déployer et valider Docker sur Render staging, puis en production ;
-- compléter les tests automatisés Django et la couverture ;
-- mettre en place la CI pour vérifier Django, les migrations, les tests et la
-  construction Docker ;
+- compléter les tests automatisés Django et ajouter la couverture ;
 - mettre en place le CD conditionné par la réussite de la CI ;
 - ajouter un contrôle de santé après chaque déploiement ;
 - mettre en place le monitoring séparé du staging et de la production, avec

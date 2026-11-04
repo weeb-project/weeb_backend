@@ -23,7 +23,7 @@ DATABASES = {
         'HOST': config('DB_HOST'),
         'PORT': config('DB_PORT', cast=int),
         'OPTIONS': {
-            'sslmode': 'require',
+            'sslmode': config('DB_SSLMODE', default='require'),
         },
     }
 }
@@ -54,6 +54,7 @@ SECRET_KEY=
 DEBUG=True
 
 # Connexion PostgreSQL/Supabase. Ne jamais versionner les vraies valeurs.
+DB_SSLMODE=require
 DB_NAME=
 DB_USER=
 DB_PASSWORD=
@@ -85,6 +86,11 @@ BREVO_SENDER_EMAIL=
 BREVO_SENDER_NAME=Weeb
 BREVO_API_TIMEOUT=10
 ```
+
+`DB_SSLMODE=require` impose une connexion PostgreSQL chiffrée pour Supabase.
+La CI utilise `DB_SSLMODE=disable` uniquement avec son service PostgreSQL
+temporaire, disponible sur le réseau interne du runner GitHub. La valeur par
+défaut du backend reste `require`, y compris sur Render.
 
 En local, laisser `BREVO_API_KEY` vide suffit pour utiliser automatiquement le
 backend console et afficher les emails dans le terminal sans envoyer de
