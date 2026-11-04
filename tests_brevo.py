@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 from django.test import Client, SimpleTestCase, override_settings
 from django.urls import reverse
 
-from .email_service import send_transactional_email
+from users.email_service import send_transactional_email
 
 
 class TransactionalEmailServiceTests(SimpleTestCase):
