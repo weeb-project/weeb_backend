@@ -49,6 +49,7 @@ exclude_docs: |
 
 nav:
   - Accueil: index.md
+  - Lancer le projet: GETTING_STARTED.md
   - Intégration frontend:
       - Guide frontend/backend: backend/FRONTEND_BACKEND.md
       - Endpoints: backend/ENDPOINTS.md

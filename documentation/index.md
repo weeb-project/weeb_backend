@@ -21,6 +21,7 @@ des branches frontend `dev` utilisent le backend staging.
 
 ## Pour commencer
 
+- [Lancer le backend avec Docker](GETTING_STARTED.md)
 - [Connecter un frontend au backend](backend/FRONTEND_BACKEND.md)
 - [Consulter les endpoints](backend/ENDPOINTS.md)
 - [Configurer les variables d'environnement](backend/ENVIRONMENT.md)
