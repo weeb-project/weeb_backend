@@ -44,15 +44,28 @@ sans le copier dans l'image.
 
 Ne jamais placer les identifiants Supabase production dans ce fichier.
 
-## Construire l'image
+## Lancement recommandé
 
-Depuis la racine du dépôt :
+Docker est désormais la méthode recommandée pour lancer le backend. Il n'est
+pas nécessaire d'activer `.venv`, d'exécuter `pip install` ou de lancer
+`manage.py runserver` sur la machine hôte.
+
+Au premier lancement, ou après une modification du code, du `Dockerfile` ou de
+`requirements.txt` :
+
+```bash
+docker compose up --build
+```
+
+Cette commande construit l'image puis démarre le backend. Pour séparer les deux
+opérations :
 
 ```bash
 docker compose build
+docker compose up
 ```
 
-## Démarrer le backend avec le staging
+Pour les lancements suivants, lorsque l'image est déjà à jour :
 
 ```bash
 docker compose up
@@ -67,14 +80,24 @@ http://localhost:8000
 Vérifier son état :
 
 ```bash
+docker compose ps
 curl http://localhost:8000/health/
 ```
+
+Le service `backend` doit être `Up` et `healthy`, et `/health/` doit répondre
+avec un statut HTTP 200 et `{"status":"ok"}`.
 
 Pour exécuter le service en arrière-plan et consulter ses logs :
 
 ```bash
 docker compose up -d
 docker compose logs -f backend
+```
+
+Pour afficher uniquement les dernières lignes :
+
+```bash
+docker compose logs --tail=100 backend
 ```
 
 ## Exécuter les commandes Django
@@ -93,6 +116,9 @@ d'une base PostgreSQL temporaire dans GitHub Actions.
 ```bash
 docker compose down
 ```
+
+L'environnement virtuel éventuellement actif dans le terminal n'est pas utilisé
+par ces commandes : Python, Django et Gunicorn s'exécutent dans le conteneur.
 
 Le projet n'utilise pas de base PostgreSQL locale dans Compose. Le Supabase
 staging configuré dans `.env` sert uniquement au développement manuel, jamais

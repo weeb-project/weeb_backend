@@ -29,8 +29,62 @@
 
 ## Lancement du projet
 
-### Préparation de l'environnement Python
-Sur Mac :
+### Méthode recommandée : Docker
+
+Docker est la méthode principale pour lancer le backend. Elle installe les
+dépendances dans l'image et exécute automatiquement les migrations, la collecte
+des fichiers statiques et Gunicorn.
+
+Créer d'abord le fichier local de configuration :
+
+```bash
+cp .env.example .env
+```
+
+Renseigner les valeurs de développement ou de staging fournies par l'équipe,
+sans utiliser les secrets de production, puis construire et démarrer le
+backend :
+
+```bash
+docker compose up --build
+```
+
+Pour les lancements suivants, tant que le `Dockerfile`, les dépendances et le
+code embarqué dans l'image n'ont pas changé :
+
+```bash
+docker compose up
+```
+
+Le backend est disponible sur `http://localhost:8000`. Vérification rapide :
+
+```bash
+docker compose ps
+curl http://localhost:8000/health/
+```
+
+Commandes courantes :
+
+```bash
+docker compose up -d
+docker compose logs -f backend
+docker compose exec backend python manage.py check
+docker compose exec backend python manage.py showmigrations
+docker compose down
+```
+
+Après une modification du code, de `requirements.txt` ou du `Dockerfile`,
+reconstruire l'image avec `docker compose up --build`.
+
+Le guide complet se trouve dans
+[documentation/devOps/DOCKER.md](documentation/devOps/DOCKER.md).
+
+### Méthode alternative : environnement Python local
+
+Cette méthode reste disponible pour le développement ou le dépannage sans
+Docker.
+
+Sur macOS :
 
 ```bash
 python3 -m venv .venv
@@ -90,7 +144,7 @@ En local HTTP, `REFRESH_TOKEN_COOKIE_SECURE` doit rester à `False` pour que le
 navigateur renvoie le cookie `refresh_token` lors de `POST /users/token/refresh/`.
 En production HTTPS, le passer à `True`.
 
-### Lancement
+### Lancement sans Docker
 
 Sur macOS, depuis la racine du projet :
 
