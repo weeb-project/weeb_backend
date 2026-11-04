@@ -81,7 +81,7 @@ class PasswordResetApiTests(APITestCase):
         reset_link = next(
             line.split()[-1]
             for line in mail.outbox[0].body.splitlines()
-            if "/reset-password?" in line
+            if "/users/password-reset/form/?" in line
         )
         query = parse_qs(urlsplit(reset_link).query)
         self.assertIn("uidb64", query)
