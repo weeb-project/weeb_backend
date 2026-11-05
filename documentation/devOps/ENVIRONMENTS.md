@@ -6,7 +6,7 @@ partagent ni service Render, ni base Supabase, ni secrets.
 | Environnement | Branche backend | Service Render | Source d'exécution | Base de données |
 | --- | --- | --- | --- | --- |
 | Staging | `dev` | `weeb-backend-staging` | `projetggs/weeb-backend:staging` | Supabase staging |
-| Production | `main` | `weeb-backend-production` | Python, migration Docker à venir | Supabase production |
+| Production | `main` | `weeb-backend-production` | `projetggs/weeb-backend:production` | Supabase production |
 
 ```text
 feature/* → dev  → Render staging    → Supabase staging
@@ -27,8 +27,8 @@ GitHub Actions construit le `Dockerfile`, exécute les tests puis publie l'image
 et démarre le conteneur avec son `CMD`. Les comptes et les données créés dans
 cet environnement sont des données de test.
 
-La mise à jour automatique de Render après une publication Docker Hub nécessite
-encore l'appel du Deploy Hook depuis GitHub Actions.
+Après publication de l'image, GitHub Actions appelle le Deploy Hook Render du
+staging afin que le service récupère la dernière valeur du tag `staging`.
 
 Le health check Render utilise :
 
@@ -51,9 +51,10 @@ https://weeb-backend-production.onrender.com
 Le service est connecté uniquement à `main`. Une fonctionnalité doit être
 validée sur le staging avant d'être fusionnée de `dev` vers `main`.
 
-La production utilise encore temporairement le runtime Python natif de Render.
-Elle sera migrée vers Docker uniquement après validation du pipeline de
-déploiement continu sur le staging.
+La production utilise l'image Docker `projetggs/weeb-backend:production`.
+Après les tests et la publication depuis `main`, GitHub Actions appelle le
+Deploy Hook de production. Render récupère alors la nouvelle image et démarre
+les migrations, la collecte des fichiers statiques et Gunicorn.
 
 Les variables `DB_*` du service de production doivent toujours pointer vers le
 projet Supabase de production. Elles ne doivent jamais reprendre les

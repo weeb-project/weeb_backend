@@ -28,6 +28,7 @@ MkDocs publiée sur
 - [Docker](documentation/devOps/DOCKER.md)
 - [Intégration continue](documentation/devOps/CI.md)
 - [Pipeline Docker, CI et CD](documentation/devOps/PIPELINE_CICD.md)
+- [Monitoring et alertes](documentation/devOps/MONITORING.md)
 - [Documentation MkDocs et GitHub Pages](documentation/devOps/MKDOCS.md)
 - [Keepalive Supabase](documentation/devOps/SUPABASE_KEEPALIVE.md)
 
@@ -117,11 +118,10 @@ La conteneurisation locale du backend est validée avec :
 - un healthcheck Docker utilisant `/health/`.
 
 L'image se construit et le conteneur atteint l'état `healthy` localement. GitHub
-Actions publie l'image validée dans `projetggs/weeb-backend` et Render staging
-utilise désormais le tag `staging` de ce registre. Les migrations, la collecte
-des fichiers statiques, Gunicorn, `/health/` et les principaux parcours
-fonctionnels ont été validés. La production utilise encore le runtime Python et
-sera migrée séparément.
+Actions publie l'image validée dans `projetggs/weeb-backend`. Render staging
+utilise le tag `staging` et Render production le tag `production`. Les
+migrations, la collecte des fichiers statiques, Gunicorn, `/health/` et les
+principaux parcours fonctionnels ont été validés.
 
 ## Vérifications déjà réalisées
 
@@ -145,24 +145,32 @@ cette image les contrôles Django, la vérification des migrations et les tests.
 Une base PostgreSQL temporaire est créée par GitHub Actions puis détruite à la
 fin du job. Les tests ne se connectent jamais à Supabase.
 
-La CI est déclenchée à chaque push et sur les Pull Requests vers `dev` ou
-`main`. Elle a été validée sur GitHub avec succès pour les événements `push` et
-`pull_request` avant la fusion dans `dev`. Le runtime Docker du staging est
-maintenant validé ; le déploiement continu reste à conditionner à la réussite de
-la CI. Après les tests, les pushes sur `dev` et `main` publient la même image
-dans `projetggs/weeb-backend`, avec un tag par SHA et un tag d'environnement.
-Après la publication du staging, le workflow appelle son Deploy Hook Render.
-Cette dernière étape doit être validée sur le prochain push dans `dev`.
+La CI est déclenchée sur les Pull Requests vers `dev` ou `main`, ainsi que sur
+les pushes dans ces deux branches. Après les tests, les pushes sur `dev` et
+`main` publient l'image validée dans `projetggs/weeb-backend`, avec un tag par
+SHA et un tag d'environnement. Le workflow appelle ensuite le Deploy Hook
+Render correspondant. Le pipeline Docker de staging et de production est donc
+automatisé après chaque fusion réussie.
+
+## Monitoring
+
+Sentry collecte séparément les exceptions Django du staging et de la
+production, sans collecte automatique des données personnelles. Render envoie
+les notifications d'échec de déploiement et `/health/` fournit une sonde HTTP
+légère. Un monitor HTTP configuré directement dans Sentry surveille la route
+`/health/` de production et envoie ses alertes à `projet.ggs@gmail.com`. Chaque
+membre accède à Sentry avec son compte personnel, sans partager ses
+identifiants. Aucun monitor permanent n'est activé sur le staging afin de
+limiter les alertes et les requêtes inutiles.
 
 ## Travaux restants
 
 Les prochaines étapes sont réalisées dans cet ordre :
 
 1. compléter les tests automatisés Django et ajouter la mesure de couverture ;
-2. mettre en place le CD staging, conditionné par la réussite de la CI, avec un
-   contrôle de santé après le déploiement ;
-3. reproduire et valider le runtime Docker et le CD sur la production ;
-4. mettre en place le monitoring séparé du staging et de la production, avec
-   collecte des erreurs, contrôle d'uptime et alertes ;
+2. ajouter un contrôle de santé automatique après chaque déploiement ;
+3. rendre les contrôles CI obligatoires dans les règles de protection de
+   `dev` et `main` ;
+4. tester et documenter un rollback vers un tag Docker SHA validé ;
 5. documenter les indicateurs de qualité, l'utilisation des ressources et
    l'impact énergétique de l'architecture.
