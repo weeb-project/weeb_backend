@@ -157,6 +157,47 @@ Un même déploiement frontend ne peut pas appeler alternativement staging et
 production sans être reconstruit. Pour changer d'environnement, ouvrir l'URL
 Vercel Production ou l'URL stable de la Preview associée à `dev`.
 
+## Configuration Vercel pour React Router
+
+Les frontends React/Vite utilisant `BrowserRouter` doivent permettre
+l'ouverture directe des routes comme `/login`, `/blog/mon-article` ou
+`/confirm-email-change?token=...`.
+
+Lors d'une navigation depuis l'application, React Router affiche la bonne page.
+Mais lorsqu'un utilisateur ouvre un lien depuis un email ou recharge une page,
+le navigateur demande directement cette URL à Vercel. Comme aucun fichier
+physique ne correspond à cette route, une configuration SPA est nécessaire.
+
+Créer un fichier `vercel.json` à la racine du frontend, au même niveau que
+`package.json` :
+
+```json
+{
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
+```
+
+Cette réécriture permet à Vercel de servir `index.html` pour toutes les routes
+de l'application. React démarre ensuite et `BrowserRouter` sélectionne la page
+correspondant à l'URL demandée.
+
+L'adresse et les paramètres de requête restent conservés. Par exemple,
+`/confirm-email-change?token=...` charge l'application tout en permettant au
+composant React de lire la valeur du paramètre `token`.
+
+Après avoir ajouté ou modifié `vercel.json`, pousser le fichier dans le dépôt
+frontend puis redéployer les environnements Vercel concernés. Vérifier ensuite
+les trois cas suivants :
+
+1. ouvrir directement une route dans un nouvel onglet ;
+2. recharger une page qui n'est pas la page d'accueil ;
+3. ouvrir un lien contenant des paramètres depuis un email.
+
 ## CORS des deux backends
 
 Chaque backend doit autoriser uniquement les origines des frontends qui
