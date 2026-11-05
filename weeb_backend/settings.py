@@ -13,6 +13,7 @@ import os
 from datetime import timedelta
 from pathlib import Path
 from decouple import Csv, config
+import sentry_sdk
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -242,6 +243,9 @@ BREVO_API_KEY = config('BREVO_API_KEY', default='')
 BREVO_SENDER_EMAIL = config('BREVO_SENDER_EMAIL', default='')
 BREVO_SENDER_NAME = config('BREVO_SENDER_NAME', default='Weeb')
 BREVO_API_TIMEOUT = config('BREVO_API_TIMEOUT', default=10, cast=int)
+SENTRY_DSN = config('SENTRY_DSN', default='')
+SENTRY_ENVIRONMENT = config('SENTRY_ENVIRONMENT', default='local')
+SENTRY_TRACES_SAMPLE_RATE = config("SENTRY_TRACES_SAMPLE_RATE", default=0.0, cast=float)
 
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',
@@ -249,3 +253,15 @@ CORS_ALLOWED_ORIGINS = config(
     cast=Csv()
 )
 CORS_ALLOW_CREDENTIALS = True
+
+sentry_sdk.init(
+    dsn="https://e12ebdd2dcecd2032e83707ec283dde5@o4512362293035008.ingest.de.sentry.io/4512379780726864",
+)
+
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=SENTRY_ENVIRONMENT,
+        traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
+        send_default_pii=False,
+    )

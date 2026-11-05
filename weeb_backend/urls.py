@@ -25,6 +25,9 @@ def health_check(request):
     """Confirme que le processus Django est prêt à recevoir des requêtes."""
     return JsonResponse({'status': 'ok'})
 
+def trigger_error(request):
+    division_by_zero = 1 / 0
+
 urlpatterns = [
     path('health/', health_check, name='health_check'),
     path('admin/', admin.site.urls),
@@ -33,4 +36,5 @@ urlpatterns = [
     path('users/', include('users.urls')),
     path('articles/', include('blog.urls')),
     path('contact/', include('contact.urls')),
+    path('sentry-debug/', trigger_error),
 ]
