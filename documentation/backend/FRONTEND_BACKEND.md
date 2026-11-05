@@ -162,6 +162,90 @@ JSON.
 
 Si le cookie est absent, invalide, expiré ou blacklisté, la route renvoie `401`.
 
+### Renouvellement automatique de l'access token
+
+L'access token a une durée de vie courte. Le frontend doit conserver l'access
+token reçu au login et l'ajouter aux routes protégées :
+
+```text
+Authorization: Bearer <access_token>
+```
+
+Lorsqu'une route protégée renvoie `401`, le frontend doit tenter un refresh,
+enregistrer le nouvel access token, puis rejouer la requête initiale. Il ne doit
+rediriger vers `/login` que si le refresh échoue lui-même.
+
+La rotation du refresh token impose de ne lancer qu'un seul refresh à la fois.
+Si plusieurs requêtes expirent simultanément, le premier refresh remplace le
+cookie et blackliste l'ancien token. Des refresh concurrents utilisant l'ancien
+token recevraient alors `401` et pourraient provoquer une fausse déconnexion.
+
+Exemple avec une promesse partagée et un intercepteur Axios :
+
+```js
+let refreshPromise = null;
+
+function refreshAccessToken() {
+  if (!refreshPromise) {
+    refreshPromise = api
+      .post("/users/token/refresh/")
+      .then((response) => {
+        setAccessToken(response.data.access);
+        return response.data.access;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+
+  return refreshPromise;
+}
+
+api.interceptors.request.use((config) => {
+  const accessToken = getAccessToken();
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  }
+  return config;
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const request = error.config;
+    const isRefreshRequest = request?.url?.includes("/users/token/refresh/");
+
+    if (error.response?.status === 401 && !request._retry && !isRefreshRequest) {
+      request._retry = true;
+
+      try {
+        const accessToken = await refreshAccessToken();
+        request.headers.Authorization = `Bearer ${accessToken}`;
+        return api(request);
+      } catch (refreshError) {
+        clearAuthentication();
+        window.location.assign("/login");
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  },
+);
+```
+
+`getAccessToken`, `setAccessToken` et `clearAuthentication` représentent ici le
+store d'authentification du frontend. Le refresh token reste inaccessible au
+JavaScript, car il est stocké dans un cookie HttpOnly.
+
+Le cycle attendu après expiration est :
+
+```text
+requête protégée       -> 401
+token/refresh/          -> 200
+requête initiale rejouée -> 200 ou 201
+```
+
 ## Rôle du frontend
 
 Le frontend gère l'accès aux pages visibles par l'utilisateur.
