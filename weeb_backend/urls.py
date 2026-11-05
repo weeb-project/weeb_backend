@@ -20,6 +20,7 @@ from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import path, include
 
+
 from users.views import AdminUserDetailView, AdminUserListView
 
 
