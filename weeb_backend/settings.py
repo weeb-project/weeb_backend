@@ -254,9 +254,6 @@ CORS_ALLOWED_ORIGINS = config(
 )
 CORS_ALLOW_CREDENTIALS = True
 
-sentry_sdk.init(
-    dsn="https://e12ebdd2dcecd2032e83707ec283dde5@o4512362293035008.ingest.de.sentry.io/4512379780726864",
-)
 
 if SENTRY_DSN:
     sentry_sdk.init(
