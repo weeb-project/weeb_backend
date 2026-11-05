@@ -70,6 +70,7 @@ nav:
       - Docker: devOps/DOCKER.md
       - Intégration continue: devOps/CI.md
       - Pipeline CI/CD: devOps/PIPELINE_CICD.md
+      - Monitoring et alertes: devOps/MONITORING.md
       - MkDocs et GitHub Pages: devOps/MKDOCS.md
       - Supabase Keep Alive: devOps/SUPABASE_KEEPALIVE.md
   - Historique:

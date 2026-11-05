@@ -14,6 +14,7 @@ from datetime import timedelta
 from pathlib import Path
 from decouple import Csv, config
 import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -260,6 +261,7 @@ SENTRY_TRACES_SAMPLE_RATE = config("SENTRY_TRACES_SAMPLE_RATE", default=0.0, cas
 if SENTRY_DSN:
     sentry_sdk.init(
         dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration()],
         environment=SENTRY_ENVIRONMENT,
         traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
         send_default_pii=False,
