@@ -15,7 +15,6 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
-import sentry_sdk
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import path, include
@@ -27,17 +26,6 @@ def health_check(request):
     """Confirme que le processus Django est prêt à recevoir des requêtes."""
     return JsonResponse({'status': 'ok'})
 
-def trigger_error(request):
-    event_id = sentry_sdk.capture_message(
-        "Test Sentry depuis Render staging",
-        level="error",
-    )
-    sentry_sdk.flush(timeout=5)
-
-    return JsonResponse({
-        "event_id": str(event_id) if event_id else None,
-    })
-
 urlpatterns = [
     path('health/', health_check, name='health_check'),
     path('admin/', admin.site.urls),
@@ -46,5 +34,4 @@ urlpatterns = [
     path('users/', include('users.urls')),
     path('articles/', include('blog.urls')),
     path('contact/', include('contact.urls')),
-    path('sentry-debug/', trigger_error),
 ]

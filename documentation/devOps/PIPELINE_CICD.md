@@ -201,7 +201,7 @@ Le workflow appelle le hook immédiatement après les deux publications. À ce
 moment, les tags SHA et `staging` partagent le même digest et désignent donc la
 même image validée.
 
-Le même principe sera appliqué à `main` avec un hook et une URL de production
+Le même principe est appliqué à `main` avec un hook et une URL de production
 distincts.
 
 ## Variables et secrets du pipeline
@@ -211,7 +211,7 @@ distincts.
 | `DOCKERHUB_USERNAME` | Variable | Namespace du dépôt Docker Hub |
 | `DOCKERHUB_TOKEN` | Secret | Authentification en écriture sur Docker Hub |
 | `RENDER_STAGING_DEPLOY_HOOK` | Secret | Déclenchement du staging après publication |
-| `RENDER_PRODUCTION_DEPLOY_HOOK` | Secret futur | Déclenchement de la production depuis `main` |
+| `RENDER_PRODUCTION_DEPLOY_HOOK` | Secret | Déclenchement de la production depuis `main` |
 
 Les identifiants Supabase, Brevo et la `SECRET_KEY` Django ne sont pas utilisés
 pour construire l'image. Ils restent uniquement dans les variables des services
@@ -256,7 +256,7 @@ Chaque image reste accessible par son SHA. Pour revenir à une version validée 
 | CI GitHub Actions | Validée |
 | Publication Docker Hub staging + SHA | Validée |
 | Render staging basé sur l'image Docker Hub | Validé |
-| Déclenchement automatique Render après publication | Configuré, à valider |
+| Déclenchement automatique Render après publication | Validé sur staging et production |
 | Contrôle de santé automatique après déploiement | À mettre en place |
-| Image et CD de production | À mettre en place après validation du staging |
+| Image et CD de production | Validés |
 
