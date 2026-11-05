@@ -219,6 +219,21 @@ Si le cookie est absent, invalide, expiré ou blacklisté, la route renvoie une
 erreur `401`. Quand un cookie invalide est présenté, l'endpoint renvoie aussi un
 cookie `refresh_token` expiré.
 
+### Conséquence de la rotation pour les clients
+
+Le frontend doit sérialiser les demandes de refresh. Une seule requête vers
+`/users/token/refresh/` doit être active à un instant donné, même si plusieurs
+requêtes métier reçoivent `401` simultanément. Les requêtes en attente doivent
+partager le résultat du même refresh, utiliser le nouvel access token, puis être
+rejouées.
+
+Sans cette file d'attente, le premier refresh fait tourner le cookie et
+blackliste l'ancien token. Les refresh concurrents peuvent alors être refusés
+avec `401`, alors que la session est encore valide. Le client ne doit supprimer
+son état d'authentification et rediriger vers la connexion que si la demande de
+refresh elle-même échoue. L'exemple complet d'intercepteur Axios se trouve dans
+`FRONTEND_BACKEND.md`.
+
 ## Logique pour les futures routes
 
 La règle générale est :
